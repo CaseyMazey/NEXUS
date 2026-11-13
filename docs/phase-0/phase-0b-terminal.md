@@ -70,3 +70,30 @@ claude -p --input-format stream-json --output-format stream-json --verbose --inc
 | Alltagstest mit echter Arbeit | ⏳ |
 
 **Bekannte Lücken im Prototyp:** keine Bilder/Dateien anhängen, keine Slash-Befehle, keine Anzeige von Unteragenten-Details, `AskUserQuestion` wird nur als allgemeine Rückfrage gezeigt, lange Werkzeug-Ketten werden noch nicht gruppiert.
+
+## Update 2026-11-13: Desks, Raster, Web-Workspaces, Bilder, Slash-Befehle
+**Desk pro Projekt:** Workspaces, Raster (1–4 nebeneinander, 4 = 2×2), aktiver Platz und **pro Workspace der fortzusetzende Chat**:
+- Claude Code: `sessionId` (kommt aus `system:init`, wird beim ersten Senden gespeichert) → `--resume`
+- Claude / ChatGPT / Gemini: Chat-Adresse (nur Ursprung + Pfad, z. B. `https://claude.ai/chat/<id>`) → wird beim Öffnen geladen
+
+Gespeichert in `nexus-data.json` unter `desks[<projekt>]`, automatisch bei jeder Änderung. Beim Start öffnet NEXUS das zuletzt genutzte Projekt.
+
+**Leiste oben:** Projekt (Icon/Farbe änderbar), Workspace-Chips (Klick = im aktiven Platz anzeigen, × = aus dem Desk entfernen, Punkt = arbeitet, ! = wartet auf Freigabe), ＋ (Claude Code Chat, Claude Code Terminal, Claude, ChatGPT, Gemini), Rasterknöpfe.
+
+**Web-Workspaces:** Code aus Phase 0 übernommen (`webviews.js`): eigene Partition je Anbieter (eine Anmeldung gilt für alle Desks), Sandbox, kein Preload, keine Skripte, Navigation nur zu erlaubten Hosts. Native Ansichten liegen über dem DOM → NEXUS blendet sie aus, solange ein Menü offen ist.
+
+**Claude-Code-Chat:**
+- **Bilder:** einfügen (Strg+V), hineinziehen oder 📎; PNG/JPEG/GIF/WebP bis 5 MB, max. 8; werden als `image`-Inhalt gesendet. Test: rotes Testbild → „Rot“ ✅
+- **Slash-Befehle:** Vorschlagsliste aus `slash_commands` (inkl. Skills), Pfeiltasten/Tab/Enter. Lokale Befehle wie `/context` liefern ihre Ausgabe nur im `result` → wird als Befehlsausgabe angezeigt. Test ✅
+- Lange Werkzeug-Ketten werden zu „🔧 n Schritte“ gruppiert.
+
+| Prüfpunkt | Ergebnis |
+|---|---|
+| Desk mit 3 Workspaces im 3er-Raster (Selbsttest) | ✅ |
+| Web-Ansichten exakt in ihren Plätzen (x=667/1078, 403 px breit) | ✅ |
+| Desk gespeichert inkl. Chat-Adressen | ✅ |
+| Bild + Slash-Befehl über stream-json | ✅ |
+| Projektwechsel stellt Chats wieder her, im Alltag | ⏳ manueller Test |
+| Gemini-Login eingebettet | ⏳ ungetestet |
+
+**Hinweis:** Die Web-Workspaces nutzen neue Partitionen im NEXUS-Datenordner → bei Claude/ChatGPT/Gemini einmal neu anmelden; danach bleibt die Anmeldung für alle Desks.

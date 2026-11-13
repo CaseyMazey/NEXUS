@@ -71,8 +71,9 @@ class ChatSession {
     if (this.proc.stdin.writable) this.proc.stdin.write(JSON.stringify(obj) + '\n');
   }
 
-  send(text) {
-    this._write({ type: 'user', message: { role: 'user', content: String(text) } });
+  // content: Text oder Inhalts-Array (Bilder + Text), vom Hauptprozess geprueft.
+  send(content) {
+    this._write({ type: 'user', message: { role: 'user', content: Array.isArray(content) ? content : String(content) } });
   }
 
   answerPermission(requestId, decision) {

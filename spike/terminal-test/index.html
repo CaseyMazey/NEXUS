@@ -2,37 +2,42 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'">
-<title>NEXUS – Claude-Code-Arbeitsplatz</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:">
+<title>NEXUS</title>
 <link rel="stylesheet" href="node_modules/@xterm/xterm/css/xterm.css">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-  <aside id="projects">
+  <aside id="sidebar">
     <div class="brand">NEXUS</div>
+    <div class="side-label">Projekte</div>
     <div id="project-list"></div>
+    <div class="side-sessions">
+      <div class="side-label">Claude-Code-Sitzungen</div>
+      <div class="side-tools"><input id="search" type="search" placeholder="Suchen…"></div>
+      <div id="color-filter"></div>
+      <div id="session-list"></div>
+    </div>
   </aside>
-  <section id="sessions">
-    <header id="project-head"></header>
-    <div class="toolbar">
-      <button id="new-session" class="primary" title="Neuer Claude-Code-Chat">+ Chat</button>
-      <button id="new-terminal" title="Claude Code im Terminal">⌨</button>
-      <input id="search" type="search" placeholder="Sitzungen suchen…">
-    </div>
-    <div id="color-filter"></div>
-    <div id="session-list"></div>
-  </section>
-  <main id="workspace">
-    <nav id="tabs"></nav>
-    <div id="terminals">
-      <div id="empty">Wähle links ein Projekt und klicke eine Sitzung an – oder starte mit „+ Chat“ eine neue.</div>
-    </div>
+  <main id="main">
+    <header id="topbar">
+      <div id="desk-title"></div>
+      <div id="ws-chips"></div>
+      <div class="add-wrap"><button id="add-ws" class="primary" title="Workspace hinzufügen">＋</button></div>
+      <div class="spacer"></div>
+      <div id="saved" class="saved"></div>
+      <div id="layouts" title="Raster"></div>
+      <button id="open-folder" title="Projektordner öffnen">📁</button>
+    </header>
+    <div id="grid"></div>
   </main>
+  <div id="parking" hidden></div>
   <div id="popover" hidden></div>
   <script src="node_modules/@xterm/xterm/lib/xterm.js"></script>
   <script src="node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
   <script src="node_modules/marked/lib/marked.umd.js"></script>
   <script src="node_modules/dompurify/dist/purify.min.js"></script>
+  <script src="chatview.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
