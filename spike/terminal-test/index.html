@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'">
+<title>NEXUS – Claude-Code-Arbeitsplatz</title>
+<link rel="stylesheet" href="node_modules/@xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <aside id="projects">
+    <div class="brand">NEXUS</div>
+    <div id="project-list"></div>
+  </aside>
+  <section id="sessions">
+    <header id="project-head"></header>
+    <div class="toolbar">
+      <button id="new-session" class="primary">+ Neue Sitzung</button>
+      <input id="search" type="search" placeholder="Sitzungen suchen…">
+    </div>
+    <div id="color-filter"></div>
+    <div id="session-list"></div>
+  </section>
+  <main id="workspace">
+    <nav id="tabs"></nav>
+    <div id="terminals">
+      <div id="empty">Wähle links ein Projekt und starte oder öffne eine Claude-Code-Sitzung.</div>
+    </div>
+  </main>
+  <div id="popover" hidden></div>
+  <script src="node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
