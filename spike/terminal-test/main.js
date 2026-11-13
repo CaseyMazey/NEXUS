@@ -7,7 +7,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const pty = require('node-pty');
-const { listSessions } = require('./sessions');
+const { listSessions, readHistory } = require('./sessions');
+const { ChatSession } = require('./chat');
 
 app.setPath('userData', path.join(app.getPath('appData'), 'nexus-terminal-test'));
 const DATA_FILE = path.join(app.getPath('userData'), 'nexus-data.json');
@@ -101,6 +102,30 @@ function openTerminal({ projectId, resumeId, cols, rows }) {
   return termId;
 }
 
+// ---------- Chat-Sitzungen (Claude Code headless) ----------
+const chats = new Map(); // chatId -> ChatSession
+let nextChatId = 1;
+
+function openChat({ projectId, resumeId, mode }) {
+  const project = projectById(projectId);
+  if (!project) throw new Error('Unbekanntes Projekt');
+  if (resumeId && !UUID.test(resumeId)) throw new Error('Ungueltige Sitzungs-ID');
+  const chatId = nextChatId++;
+  const session = new ChatSession({
+    cwd: project.path,
+    resumeId,
+    mode,
+    env: cleanEnv(),
+    onEvent: (ev) => {
+      if (ev.type === 'nexus-exit') chats.delete(chatId);
+      if (win && !win.isDestroyed()) win.webContents.send('chat-event', chatId, ev);
+    },
+  });
+  chats.set(chatId, session);
+  const history = resumeId ? readHistory(project.path, resumeId) : [];
+  return { chatId, history };
+}
+
 function fromUi(e) {
   return win && e.sender === win.webContents;
 }
@@ -117,6 +142,22 @@ handle('list-sessions', (projectId) => {
   return p ? listSessions(p.path) : [];
 });
 handle('open-terminal', (opts) => openTerminal(opts));
+handle('open-chat', (opts) => openChat(opts));
+handle('chat-send', (chatId, text) => {
+  if (typeof text !== 'string' || !text.trim() || text.length > 100000) return false;
+  chats.get(chatId)?.send(text);
+  return true;
+});
+handle('chat-permission', (chatId, requestId, decision) => {
+  if (!['allow', 'always', 'deny'].includes(decision)) return;
+  chats.get(chatId)?.answerPermission(String(requestId), decision);
+});
+handle('chat-interrupt', (chatId) => chats.get(chatId)?.interrupt());
+handle('chat-mode', (chatId, mode) => chats.get(chatId)?.setMode(mode));
+handle('chat-close', (chatId) => {
+  chats.get(chatId)?.close();
+  chats.delete(chatId);
+});
 handle('update-project', (id, patch) => {
   const p = projectById(id);
   if (!p) return;
@@ -176,8 +217,24 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  // --selftest=<png>: oeffnet die neueste Sitzung des ersten Projekts als Chat (ohne zu senden), Screenshot, Ende.
+  const st = process.argv.find((a) => a.startsWith('--selftest='));
+  if (st) {
+    win.webContents.once('did-finish-load', async () => {
+      await new Promise((r) => setTimeout(r, 2500));
+      await win.webContents.executeJavaScript("document.querySelector('.session')?.click(); true");
+      await new Promise((r) => setTimeout(r, 4000));
+      const img = await win.webContents.capturePage();
+      fs.writeFileSync(st.slice('--selftest='.length), img.toPNG());
+      console.log('[selftest] screenshot saved');
+      app.quit();
+    });
+  }
+});
 app.on('window-all-closed', () => {
   for (const t of terms.values()) t.proc.kill();
+  for (const c of chats.values()) c.close();
   app.quit();
 });

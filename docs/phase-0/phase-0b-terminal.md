@@ -45,3 +45,28 @@ npm start
 1. Manueller Test: Sitzung fortsetzen, neue Sitzung, mehrere Tabs, Farben/Pins, Neustart der App.
 2. Rückmeldung zur Oberfläche: Was fehlt zum Sortieren? (z. B. Gruppen von Projekten, Umbenennen von Sitzungen, Notizen je Sitzung)
 3. Danach Architekturvorschlag für MVP 1.0 mit Terminal-Connector als Kern.
+
+## Update 2026-11-13: Chat-Oberfläche (statt nur Terminal)
+Entscheidung: Claude Code bekommt eine **eigene Chat-Oberfläche mit Abo**, als reines Privatwerkzeug (siehe `docs/konzept/eigene-oberflaeche.md`). Das Terminal bleibt als Rückfallebene (⌨).
+
+**Technik:** NEXUS startet das installierte Claude Code als Kindprozess:
+```
+claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages
+       --permission-mode <default|acceptEdits|plan> --permission-prompts host --permission-prompt-tool stdio [--resume <id>]
+```
+- Nachrichten gehen als JSON-Zeilen über stdin, der Prozess bleibt über mehrere Nachrichten offen.
+- Live-Text über `stream_event` → `text_delta`; Werkzeugaufrufe und Ergebnisse über `assistant`/`user`-Nachrichten.
+- **Rückfragen:** Claude Code schickt `control_request` `can_use_tool` (mit `description` und `permission_suggestions`); NEXUS antwortet mit `control_response` (`allow` / `deny`, bei „immer“ mit `updatedPermissions`). **Ohne `--permission-prompt-tool stdio` werden Rückfragen automatisch abgelehnt** (getestet).
+- Stoppen: `control_request` `interrupt`; Modus wechseln: `set_permission_mode`.
+- `rate_limit_event` liefert die Abo-Auslastung (5 Std. / Woche) → Anzeige im Eingabefeld.
+
+| Prüfpunkt | Ergebnis |
+|---|---|
+| Neue Sitzung, Live-Text | ✅ (Test mit Haiku) |
+| Rückfrage in NEXUS, „Erlauben“ → Datei angelegt | ✅ |
+| Fortsetzen (`--resume`), Kontext bleibt, gleiche Sitzungs-ID | ✅ |
+| Verlauf einer Sitzung in der Chat-Ansicht | ✅ (Selbsttest mit Screenshot) |
+| Oberfläche lädt ohne Fehler | ✅ |
+| Alltagstest mit echter Arbeit | ⏳ |
+
+**Bekannte Lücken im Prototyp:** keine Bilder/Dateien anhängen, keine Slash-Befehle, keine Anzeige von Unteragenten-Details, `AskUserQuestion` wird nur als allgemeine Rückfrage gezeigt, lange Werkzeug-Ketten werden noch nicht gruppiert.

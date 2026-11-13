@@ -10,7 +10,8 @@ NEXUS soll eine **eigene Oberfläche für die KIs** bieten, weil die Oberfläche
 - vielleicht Kontext zwischen den KIs teilen
 
 ## Entscheidungen
-- **2026-11-13: Claude läuft über den Terminal-Connector, ohne API-Key.** NEXUS startet das echte Claude Code (mit dem Claude-Abo) in einem eingebetteten Terminal im Projektrahmen. Keine eigene Chat-UI für Claude, kein Agent SDK, kein Headless-Wrapper.
+- **2026-11-13: Claude Code bekommt eine eigene Chat-Oberfläche, mit Abo, als reines Privatwerkzeug.** NEXUS startet das installierte Claude Code im Headless-Modus (`claude -p --input-format stream-json --output-format stream-json`) und zeichnet den Chat selbst. NEXUS fasst keine Zugangsdaten an. Terminal bleibt als Rückfallebene. Grauzone bei Anthropics Regeln bewusst akzeptiert; für Verteilung an andere: API-Key oder Genehmigung nötig.
+- ~~2026-11-13: Claude nur über Terminal-Connector~~ – ersetzt durch die Entscheidung oben.
 - **2026-11-13: Terminal-Connector und Projekt-Kontextdatei kommen ins MVP 1.0.**
 
 ## Kernproblem

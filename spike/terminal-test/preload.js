@@ -12,4 +12,12 @@ contextBridge.exposeInMainWorld('nexus', {
   kill: (termId) => ipcRenderer.send('term-kill', termId),
   onData: (fn) => ipcRenderer.on('term-data', (e, id, d) => fn(id, d)),
   onExit: (fn) => ipcRenderer.on('term-exit', (e, id, code) => fn(id, code)),
+  // Chat (Claude Code headless)
+  openChat: (opts) => ipcRenderer.invoke('open-chat', opts),
+  chatSend: (id, text) => ipcRenderer.invoke('chat-send', id, text),
+  chatPermission: (id, reqId, decision) => ipcRenderer.invoke('chat-permission', id, reqId, decision),
+  chatInterrupt: (id) => ipcRenderer.invoke('chat-interrupt', id),
+  chatMode: (id, mode) => ipcRenderer.invoke('chat-mode', id, mode),
+  chatClose: (id) => ipcRenderer.invoke('chat-close', id),
+  onChatEvent: (fn) => ipcRenderer.on('chat-event', (e, id, ev) => fn(id, ev)),
 });

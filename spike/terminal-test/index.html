@@ -15,7 +15,8 @@
   <section id="sessions">
     <header id="project-head"></header>
     <div class="toolbar">
-      <button id="new-session" class="primary">+ Neue Sitzung</button>
+      <button id="new-session" class="primary" title="Neuer Claude-Code-Chat">+ Chat</button>
+      <button id="new-terminal" title="Claude Code im Terminal">⌨</button>
       <input id="search" type="search" placeholder="Sitzungen suchen…">
     </div>
     <div id="color-filter"></div>
@@ -24,12 +25,14 @@
   <main id="workspace">
     <nav id="tabs"></nav>
     <div id="terminals">
-      <div id="empty">Wähle links ein Projekt und starte oder öffne eine Claude-Code-Sitzung.</div>
+      <div id="empty">Wähle links ein Projekt und klicke eine Sitzung an – oder starte mit „+ Chat“ eine neue.</div>
     </div>
   </main>
   <div id="popover" hidden></div>
   <script src="node_modules/@xterm/xterm/lib/xterm.js"></script>
   <script src="node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="node_modules/marked/lib/marked.umd.js"></script>
+  <script src="node_modules/dompurify/dist/purify.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
