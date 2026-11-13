@@ -1,0 +1,14 @@
+{
+  "name": "nexus-embed-test",
+  "version": "0.0.0",
+  "private": true,
+  "description": "NEXUS Phase 0: prueft eingebettete KI-Anbieter in Electron WebContentsView",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:clean-ua": "electron . --clean-ua"
+  },
+  "devDependencies": {
+    "electron": "45.3.1"
+  }
+}
