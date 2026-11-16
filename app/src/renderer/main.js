@@ -33,6 +33,28 @@ function showToast(text, actions = [], sticky = false) {
   return n;
 }
 
+// ---------- Claude Code installiert/angemeldet? ----------
+function claudeText(c) {
+  if (!c) return t('claude.checking');
+  if (!c.installed) return t('claude.missing');
+  if (c.loggedIn === false) return t('claude.loggedOut');
+  return t('claude.ok', { version: c.version || '?' });
+}
+// Hinweis im 3C-Fenster bzw. Terminal, wenn Claude Code fehlt oder nicht angemeldet ist
+function claudeProblem() {
+  const c = state.claude;
+  if (!c) return null;
+  if (!c.installed) return 'missing';
+  if (c.loggedIn === false) return 'loggedOut';
+  return null;
+}
+window.nexus.onClaudeStatus((c) => {
+  const before = claudeProblem();
+  state.claude = c;
+  if (modalOpen && modalRender) modalRender();
+  if (state.project && before !== claudeProblem()) renderDesk();
+});
+
 // ---------- Updates ----------
 function updateText(u) {
   if (!u) return '';

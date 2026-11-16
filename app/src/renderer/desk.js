@@ -181,6 +181,16 @@ function renderCell(i, ws) {
     return cell;
   }
   const info = wsInfo(ws.type);
+  // Claude Code fehlt oder ist nicht angemeldet: Hinweis statt Chat/Terminal
+  if (info.kind !== 'web' && claudeProblem()) {
+    cell.append(el('div', { class: 'cell-empty claude-hint' },
+      el('div', { class: 'ce-title' }, t(`claude.${claudeProblem()}Title`)),
+      el('p', { class: 'm-sub' }, t(`claude.${claudeProblem()}Text`)),
+      el('div', { class: 'ce-btns' },
+        claudeProblem() === 'missing' ? el('button', { class: 'primary', onclick: () => window.open('https://claude.com/claude-code') }, t('claude.install')) : null,
+        el('button', { onclick: async () => { state.claude = await window.nexus.claudeCheck(); renderDesk(); } }, t('claude.recheck')))));
+    return cell;
+  }
   const l = ensureLive(ws, state.project);
   const head = el('div', { class: 'cell-head', style: { '--wc': info.color } },
     el('span', { class: 'ch-icon' }, info.icon),

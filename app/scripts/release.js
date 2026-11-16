@@ -31,9 +31,12 @@ run('npx', ['electron-builder', '--win', 'nsis', '--publish', 'never'], { shell:
 const setup = `dist/NEXUS-Setup-${version}.exe`;
 for (const f of [setup, `${setup}.blockmap`, 'dist/latest.yml']) if (!fs.existsSync(path.join(APP, f))) { console.error('Fehlt:', f); process.exit(1); }
 
+// Fester Name fuer den Download-Link in der README (…/releases/latest/download/NEXUS-Setup.exe)
+fs.copyFileSync(path.join(APP, setup), path.join(APP, 'dist/NEXUS-Setup.exe'));
+
 run('git', ['commit', '-am', `NEXUS ${version}`]);
 run('git', ['push']);
 const branch = out('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
-run('gh', ['release', 'create', `v${version}`, setup, `${setup}.blockmap`, 'dist/latest.yml',
+run('gh', ['release', 'create', `v${version}`, setup, `${setup}.blockmap`, 'dist/latest.yml', 'dist/NEXUS-Setup.exe',
   '--title', `NEXUS ${version}`, '--notes', notes, '--target', branch]);
 console.log(`\nNEXUS ${version} veroeffentlicht. Installierte Apps finden das Update beim naechsten Start (spaetestens nach 6 Stunden).`);

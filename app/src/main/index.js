@@ -1,6 +1,6 @@
 // NEXUS – Hauptprozess: Datenordner, Daten-Umzug, Fenster, Benachrichtigungen.
 // Die Aufrufe aus der Oberflaeche stehen in ipc.js.
-const { app, BrowserWindow, shell, nativeTheme, dialog, Notification } = require('electron');
+const { app, BrowserWindow, shell, nativeTheme, dialog, Notification, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -13,6 +13,9 @@ const { Agents, iconPath } = require('./agents');
 const { WebViews, CATALOG } = require('./webviews');
 const { registerIpc } = require('./ipc');
 const { Updater } = require('./updater');
+const { initLog, logDir } = require('./log');
+const { checkClaude } = require('./claude-check');
+const { cleanEnv } = require('./agents');
 
 const APP_ID = 'NEXUS';
 // Installierte Version: App-ID wie vom Installer in den Verknuepfungen eingetragen (package.json build.appId).
@@ -27,6 +30,9 @@ const isTest = !!dataArg;
 const DATA_DIR = dataArg ? path.resolve(dataArg.slice('--nexus-data='.length)) : path.join(app.getPath('appData'), APP_ID);
 const LEGACY_DIR = path.join(app.getPath('appData'), 'nexus-terminal-test');
 app.setPath('userData', DATA_DIR);
+// Protokoll ab hier in %APPDATA%\NEXUS\logs (bzw. im Testordner)
+initLog(DATA_DIR);
+console.log('[start] NEXUS', app.getVersion(), app.isPackaged ? 'installiert' : 'Quellcode', isTest ? '(Test)' : '');
 app.setAppUserModelId(AUMID);
 app.setName(APP_ID);
 
@@ -108,9 +114,24 @@ function tagShortcuts() {
 }
 
 // ---------- Fenster ----------
+// Letzte Fenstergroesse/-position, aber nur wenn sie noch auf einen angeschlossenen Bildschirm passt
+function savedBounds() {
+  const w = store.data.window;
+  if (!w || !(w.width >= 600 && w.height >= 400)) return { width: 1500, height: 920 };
+  const visible = screen.getAllDisplays().some(({ workArea: a }) =>
+    w.x < a.x + a.width - 100 && w.x + w.width > a.x + 100 && w.y >= a.y - 20 && w.y < a.y + a.height - 100);
+  return visible ? { x: w.x, y: w.y, width: w.width, height: w.height } : { width: w.width, height: w.height };
+}
+function rememberBounds() {
+  if (!win || win.isDestroyed()) return;
+  const b = win.getNormalBounds();
+  store.data.window = { x: b.x, y: b.y, width: b.width, height: b.height, maximized: win.isMaximized() };
+  store.save();
+}
+
 function createWindow() {
   win = new BrowserWindow({
-    width: 1500, height: 920, backgroundColor: theme().bg, title: 'NEXUS', icon: path.join(ROOT, 'build', 'icon.ico'),
+    ...savedBounds(), backgroundColor: theme().bg, title: 'NEXUS', icon: path.join(ROOT, 'build', 'icon.ico'), show: false,
     webPreferences: { preload: path.join(ROOT, 'src', 'preload', 'index.js'), sandbox: true, contextIsolation: true, nodeIntegration: false },
   });
   // Keine Menueleiste; Entwicklerwerkzeuge und Zoom ueber eigene Tastenkuerzel
@@ -123,8 +144,24 @@ function createWindow() {
     else if (i.control && i.key === '-') { wc.setZoomLevel(Math.max(wc.getZoomLevel() - 0.5, -3)); e.preventDefault(); }
     else if (i.control && i.key === '0') { wc.setZoomLevel(0); e.preventDefault(); }
   });
+  if (store.data.window?.maximized) win.maximize();
+  win.once('ready-to-show', () => win.show());
+  for (const ev of ['resize', 'move', 'maximize', 'unmaximize']) win.on(ev, rememberBounds);
+  win.on('close', rememberBounds);
   win.loadFile(path.join(ROOT, 'src', 'renderer', 'index.html'));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
+  // Oberflaeche abgestuerzt: Bescheid geben statt leerem Fenster
+  win.webContents.on('render-process-gone', async (e, d) => {
+    console.error('[ui] abgestuerzt:', d.reason, d.exitCode);
+    if (d.reason === 'clean-exit') return;
+    const r = await dialog.showMessageBox(win, {
+      type: 'error', title: 'NEXUS', message: t('crash.msg'), detail: t('crash.detail', { reason: d.reason, log: logDir() }),
+      buttons: [t('crash.reload'), t('crash.openLog'), t('crash.quit')], defaultId: 0, cancelId: 2,
+    });
+    if (r.response === 0) win.reload();
+    else if (r.response === 1) { shell.openPath(logDir()); win.reload(); }
+    else app.quit();
+  });
   win.on('focus', () => win.flashFrame(false));
   win.webContents.on('console-message', (e) => {
     if (e.level === 'warning' || e.level === 'error') console.log(`[ui:${e.level}] ${e.message} (${e.sourceId}:${e.lineNumber})`);
@@ -135,7 +172,24 @@ function createWindow() {
 
 app.on('second-instance', () => showWindow());
 
-app.whenReady().then(async () => {
+// Start ging schief: verstaendliche Meldung statt leerem oder fehlendem Fenster
+async function startFailed(err) {
+  console.error('[start] fehlgeschlagen:', err && err.stack || err);
+  const tt = translator(resolveLang(store?.data?.settings?.language, app.getLocale()));
+  const newer = /^newer-schema/.test(err && err.message);
+  const r = await dialog.showMessageBox({
+    type: 'error', title: 'NEXUS',
+    message: tt(newer ? 'start.newerMsg' : 'start.failedMsg'),
+    detail: tt(newer ? 'start.newerDetail' : 'start.failedDetail', { error: String(err && err.message || err), log: logDir(), data: DATA_DIR }),
+    buttons: [tt('crash.openLog'), tt('crash.quit')], defaultId: 0, cancelId: 1,
+  });
+  if (r.response === 0) await shell.openPath(logDir());
+  app.exit(1);
+}
+
+app.whenReady().then(() => start().catch(startFailed));
+
+async function start() {
   if (!primary) return;
   const sysLocale = app.getLocale();
   // Alter NEXUS laeuft noch: Umzug geht erst, wenn er geschlossen ist
@@ -162,16 +216,26 @@ app.whenReady().then(async () => {
   });
   const aiById = (id) => store.data.ais.find((a) => a.id === id) || null;
   const webviews = new WebViews(() => win, aiById, (wsId, s) => toUi('web-state', wsId, s), (aiId, s) => toUi('ai-status', aiId, s), t);
+  const claude = { status: null };
   const updater = new Updater({ enabled: app.isPackaged && (!isTest || process.env.NEXUS_UPDATE_TEST === '1'), testRun: isTest, isEnabledSetting: () => store.data.settings.autoUpdate !== false, toUi });
   registerIpc({
     getWin: () => win, store, projects, agents, webviews, aiById, t, applyTheme, projectRoot, updater, version: app.getVersion(),
     lang, strings: dict(lang), migrated: migration && migration.files ? { from: LEGACY_DIR } : null,
     relaunch: () => { store.flush(); app.relaunch(); app.quit(); },
+    logDir, claude, checkClaude: () => refreshClaude(),
   });
+  // Claude Code installiert und angemeldet? (nur ja/nein, keine Kontodaten)
+  async function refreshClaude() {
+    claude.status = await checkClaude(cleanEnv());
+    console.log('[claude]', JSON.stringify(claude.status));
+    toUi('claude-status', claude.status);
+    return claude.status;
+  }
   tagShortcuts();
   applyTheme();
   createWindow();
   updater.start();
+  refreshClaude();
   app.on('before-quit', () => { agents.closeAll(); store.flush(); });
   app.on('window-all-closed', () => { agents.closeAll(); store.flush(); app.quit(); });
-});
+}

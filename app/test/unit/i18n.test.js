@@ -43,7 +43,8 @@ test('jeder im Code benutzte Schluessel steht im Woerterbuch', () => {
   for (const th of ['hell', 'creme', 'sand', 'nacht', 'retro', 'kupfer']) { used.add(`theme.${th}`); used.add(`theme.${th}.hint`); }
   for (const s of ['in', 'unknown', 'out', 'checking']) { used.add(`ai.status.${s}`); used.add(`ai.hint.${s}`); }
   for (const s of ['idle', 'checking', 'none', 'ready', 'off']) used.add(`update.status.${s}`);
-  for (const k of ['migrate.lockedMsg', 'migrate.lockedDetail', 'migrate.errorMsg', 'migrate.errorDetail']) used.add(k);
+  for (const p of ['missing', 'loggedOut']) { used.add(`claude.${p}Title`); used.add(`claude.${p}Text`); }
+  for (const k of ['start.newerMsg', 'start.newerDetail', 'start.failedMsg', 'start.failedDetail', 'migrate.lockedMsg', 'migrate.lockedDetail', 'migrate.errorMsg', 'migrate.errorDetail']) used.add(k);
   const missing = [...used].filter((k) => !(k in de));
   assert.deepEqual(missing, []);
   assert.ok(used.size > 150, 'Schluessel gefunden: ' + used.size);
