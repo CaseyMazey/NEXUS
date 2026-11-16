@@ -332,3 +332,8 @@ button.danger-fill:hover { background: #b91c1c; }
 .jump-down { position: absolute; right: 26px; top: -46px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 3; }
 .jump-down:hover { border-color: var(--pc, var(--accent)); color: var(--pc, var(--accent)); }
 .jump-down[hidden] { display: none; }
+
+/* 3C: nach /clear – alter Verlauf blass, Trennlinie "neue Unterhaltung" */
+.chat-inner > .cleared { opacity: .45; }
+.note.reset { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 11.5px; margin: 14px 0; }
+.note.reset::before, .note.reset::after { content: ''; flex: 1; height: 1px; background: var(--line); }
