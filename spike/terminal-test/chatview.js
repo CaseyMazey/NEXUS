@@ -157,18 +157,8 @@
       if (diff === 1) return `gestern ${clock(ts)}`;
       return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}. ${clock(ts)}`;
     }
-    function ago(ts) {
-      const m = Math.floor((Date.now() - ts) / 60000);
-      if (m < 1) return 'gerade eben';
-      if (m < 60) return `vor ${m} Min.`;
-      if (m < 24 * 60) return `vor ${Math.floor(m / 60)} Std.`;
-      return '';
-    }
     const dur = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); if (s < 60) return `${s} s`; const m = Math.floor(s / 60); return m < 60 ? `${m} Min. ${s % 60} s` : `${Math.floor(m / 60)} Std. ${m % 60} Min.`; };
     const fullDate = (ts) => new Date(ts).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    // "vor 3 Min." laeuft mit
-    function relEl(ts) { const s = el('span', { class: 'rel' }, ago(ts)); s.dataset.ts = ts; return s; }
-    const relTimer = setInterval(() => { for (const s of root.querySelectorAll('.rel[data-ts]')) s.textContent = ago(+s.dataset.ts); }, 30000);
     function addUser(text, imgs = [], ts = Date.now()) {
       const bubble = el('div', { class: 'bubble' });
       if (imgs.length) bubble.append(el('div', { class: 'bubble-imgs' }, ...imgs.map((u) => el('img', { src: u }))));
@@ -179,7 +169,7 @@
     }
     // Abschlusszeile eines Auftrags: wann fertig, wie lange, wie viele Schritte
     function addDone({ end, ms, steps, stopped }) {
-      const parts = [el('b', {}, stopped ? '■ Gestoppt' : '✓ Fertig'), ` ${when(end)} · `, relEl(end)];
+      const parts = [el('b', {}, stopped ? '■ Gestoppt' : '✓ Fertig'), ` ${when(end)}`];
       if (ms) parts.push(` · Dauer ${dur(ms)}`);
       if (steps) parts.push(` · ${steps} Schritt${steps === 1 ? '' : 'e'}`);
       append(el('div', { class: 'note meta done' + (stopped ? ' stopped' : ''), title: 'Fertig ' + fullDate(end) }, ...parts));
@@ -383,7 +373,7 @@
     view.setBusy = setBusy; // fuer Selbsttests
     view.focus = () => { input.focus(); };
     view.scrollDown = scrollDown;
-    view.destroy = () => { clearInterval(think.timer); clearInterval(relTimer); if (view.chatId) window.nexus.chatClose(view.chatId); root.remove(); };
+    view.destroy = () => { clearInterval(think.timer); if (view.chatId) window.nexus.chatClose(view.chatId); root.remove(); };
 
     // ----- Start -----
     view.ready = (async () => {
