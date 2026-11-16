@@ -406,6 +406,17 @@ function createWindow() {
     width: 1500, height: 920, backgroundColor: bgColor(), title: 'NEXUS', icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false },
   });
+  // Keine Menueleiste (File/Edit/View/Window). Kopieren/Einfuegen funktioniert unter Windows auch ohne Menue;
+  // Entwicklerwerkzeuge und Zoom bekommen hier eigene Tastenkuerzel.
+  win.removeMenu();
+  win.webContents.on('before-input-event', (e, i) => {
+    if (i.type !== 'keyDown') return;
+    const wc = win.webContents;
+    if (i.key === 'F12' || (i.control && i.shift && i.key.toLowerCase() === 'i')) { wc.toggleDevTools(); e.preventDefault(); }
+    else if (i.control && (i.key === '+' || i.key === '=')) { wc.setZoomLevel(Math.min(wc.getZoomLevel() + 0.5, 4)); e.preventDefault(); }
+    else if (i.control && i.key === '-') { wc.setZoomLevel(Math.max(wc.getZoomLevel() - 0.5, -3)); e.preventDefault(); }
+    else if (i.control && i.key === '0') { wc.setZoomLevel(0); e.preventDefault(); }
+  });
   win.loadFile(path.join(__dirname, 'index.html'));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.on('focus', () => win.flashFrame(false));
