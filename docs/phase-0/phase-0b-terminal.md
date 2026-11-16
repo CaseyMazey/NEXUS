@@ -121,3 +121,14 @@ Wunsch (vom Nutzer): nicht in jedem Workspace neu anmelden, sondern KIs einmal i
 | Alter ChatGPT-Workspace mit Login-Adresse öffnet chatgpt.com | ✅ (Selbsttest) |
 | Dialog und Seitenleiste ohne Konsolenfehler | ✅ (Selbsttest mit Screenshot) |
 | Anmelden → Status grün → zweiter Workspace ohne erneute Anmeldung | ⏳ manueller Test |
+
+## Update 2026-11-16: Projekte verwalten, Statusfenster, helles Theme
+
+- **Woher die Projektliste kommt:** Beim allerersten Start liest NEXUS einmal alle Unterordner von `Dokumente\Projekt` ein und speichert sie in `%APPDATA%\nexus-terminal-test\nexus-data.json`. Danach gilt nur noch diese Liste; neue Ordner erscheinen nicht automatisch.
+- **Projekte anlegen:** ＋ neben „Projekte“. Entweder wird ein neuer Ordner in `Dokumente\Projekt` angelegt, oder ein vorhandener Ordner wird gewählt. Ordner aus `Dokumente\Projekt`, die noch nicht in NEXUS sind, werden als Vorschlag angezeigt.
+- **Bearbeiten:** ✎ beim Überfahren eines Projekts oder Rechtsklick. Name, Ordner, Icon und Farbe lassen sich ändern.
+- **Entfernen:** Nimmt das Projekt nur aus NEXUS heraus und schließt seinen Desk. Der Ordner auf der Platte und die Claude-Code-Sitzungen bleiben unverändert; NEXUS löscht nie Dateien.
+- Fehlt der Ordner eines Projekts, wird es in der Liste durchgestrichen und mit ⚠ markiert.
+- Klick auf eine KI unter „Meine KIs“ öffnet ein Statusfenster, statt einen Workspace anzulegen.
+- Beim Schließen eines Workspaces lässt sich die Nachfrage mit „Nicht mehr fragen“ abschalten.
+- Sonne/Mond-Button: helles Theme für die KIs, die NEXUS-Oberfläche, den Chat und die Terminals.

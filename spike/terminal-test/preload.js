@@ -6,6 +6,10 @@ contextBridge.exposeInMainWorld('nexus', {
   listSessions: (projectId) => ipcRenderer.invoke('list-sessions', projectId),
   saveDesk: (projectId, desk) => ipcRenderer.invoke('save-desk', projectId, desk),
   updateProject: (id, patch) => ipcRenderer.invoke('update-project', id, patch),
+  createProject: (opts) => ipcRenderer.invoke('project-create', opts),
+  removeProject: (id) => ipcRenderer.invoke('project-remove', id),
+  unlistedFolders: () => ipcRenderer.invoke('project-unlisted'),
+  pickFolder: (start) => ipcRenderer.invoke('pick-folder', start),
   updateSessionMeta: (id, patch) => ipcRenderer.invoke('update-session-meta', id, patch),
   openFolder: (projectId) => ipcRenderer.invoke('open-folder', projectId),
   // Terminal

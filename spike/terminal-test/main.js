@@ -3,7 +3,7 @@
 // - Claude / ChatGPT / Gemini: eingebettete Webseiten (WebContentsView, nur passiv)
 // - Pro Projekt ein "Desk": Workspaces, Raster und der jeweils fortzusetzende Chat
 
-const { app, BrowserWindow, ipcMain, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -86,6 +86,63 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COLOR = /^#[0-9a-f]{6}$/i;
 const WSID = /^[a-z0-9-]{4,40}$/;
 const projectById = (id) => data.projects.find((p) => p.id === id);
+
+// ---------- Projekte verwalten ----------
+// NEXUS fuehrt eine eigene Liste (nexus-data.json). Ordner auf der Platte werden nie geloescht.
+const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+const sortProjects = () => data.projects.sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
+const samePath = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+function cleanName(name) {
+  const n = typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : '';
+  if (!n || n.length > 60) throw new Error('Bitte einen Namen mit 1–60 Zeichen angeben.');
+  return n;
+}
+// Ordnername fuer "neuer Ordner": keine Pfadtrenner oder unter Windows verbotene Zeichen
+function folderName(name) {
+  if (/[<>:"/\\|?*\x00-\x1f]/.test(name) || /[. ]$/.test(name) || /^(con|prn|aux|nul|com\d|lpt\d)$/i.test(name)) {
+    throw new Error('Der Name enthält Zeichen, die als Ordnername nicht erlaubt sind.');
+  }
+  return name;
+}
+function newProjectId(name) {
+  const base = name.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'projekt';
+  let id = base;
+  for (let i = 2; projectById(id); i++) id = `${base}-${i}`;
+  return id;
+}
+function checkFolder(p) {
+  if (typeof p !== 'string' || !path.isAbsolute(p) || !isDir(p)) throw new Error('Der Ordner existiert nicht.');
+  return path.resolve(p);
+}
+const publicProjects = () => data.projects.map((p) => ({ ...p, missing: !isDir(p.path) }));
+// Ordner in Dokumente\Projekt, die noch nicht in NEXUS sind
+function unlistedFolders() {
+  if (!isDir(PROJECT_ROOT)) return [];
+  return fs.readdirSync(PROJECT_ROOT).filter((n) => !n.startsWith('.') && isDir(path.join(PROJECT_ROOT, n)))
+    .map((n) => path.join(PROJECT_ROOT, n)).filter((p) => !data.projects.some((x) => samePath(x.path, p)))
+    .sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
+}
+function createProject({ name, folder, newFolder, icon, color }) {
+  const n = cleanName(name);
+  let dir;
+  if (newFolder) {
+    dir = path.join(PROJECT_ROOT, folderName(n));
+    if (fs.existsSync(dir)) throw new Error(`In ${PROJECT_ROOT} gibt es schon einen Ordner „${n}“. Wähle ihn stattdessen als vorhandenen Ordner.`);
+    fs.mkdirSync(dir, { recursive: true });
+  } else {
+    dir = checkFolder(folder);
+  }
+  const dup = data.projects.find((x) => samePath(x.path, dir));
+  if (dup) throw new Error(`Dieser Ordner ist schon als Projekt „${dup.name}“ in NEXUS.`);
+  const i = data.projects.length;
+  const p = { id: newProjectId(n), name: n, path: dir,
+    color: COLOR.test(color || '') ? color : PALETTE[i % PALETTE.length],
+    icon: typeof icon === 'string' && icon && icon.length <= 8 ? icon : ICONS[i % ICONS.length], group: '' };
+  data.projects.push(p);
+  sortProjects();
+  saveData();
+  return p;
+}
 
 function cleanEnv() {
   const env = { ...process.env };
@@ -184,7 +241,7 @@ function on(channel, fn) {
 }
 
 handle('get-state', () => ({
-  projects: data.projects, sessionMeta: data.sessionMeta, desks: data.desks, slashCommands: data.slashCommands,
+  projects: publicProjects(), projectRoot: PROJECT_ROOT, sessionMeta: data.sessionMeta, desks: data.desks, slashCommands: data.slashCommands,
   palette: PALETTE, icons: ICONS, ais: publicAis(),
   catalog: Object.entries(CATALOG).map(([id, c]) => ({ id, label: c.label, icon: c.icon, color: c.color, url: c.url })),
   lastProject: data.lastProject || null, settings: data.settings,
@@ -217,9 +274,32 @@ handle('update-project', (id, patch) => {
   const p = projectById(id);
   if (!p) return;
   if (patch.color && COLOR.test(patch.color)) p.color = patch.color;
-  if (typeof patch.icon === 'string' && patch.icon.length <= 8) p.icon = patch.icon;
+  if (typeof patch.icon === 'string' && patch.icon && patch.icon.length <= 8) p.icon = patch.icon;
+  if ('name' in patch) p.name = cleanName(patch.name);
+  if ('path' in patch) {
+    const dir = checkFolder(patch.path);
+    const dup = data.projects.find((x) => x !== p && samePath(x.path, dir));
+    if (dup) throw new Error(`Dieser Ordner ist schon als Projekt „${dup.name}“ in NEXUS.`);
+    p.path = dir;
+  }
+  sortProjects();
   saveData();
-  return p;
+  return publicProjects();
+});
+handle('project-create', (opts) => { const p = createProject(opts || {}); return { id: p.id, projects: publicProjects() }; });
+handle('project-remove', (id) => {
+  if (!projectById(id)) return publicProjects();
+  data.projects = data.projects.filter((p) => p.id !== id);
+  delete data.desks[id];
+  if (data.lastProject === id) data.lastProject = null;
+  saveData();
+  return publicProjects();
+});
+handle('project-unlisted', () => unlistedFolders());
+handle('pick-folder', async (start) => {
+  const r = await dialog.showOpenDialog(win, { title: 'Projektordner wählen', properties: ['openDirectory', 'createDirectory'],
+    defaultPath: typeof start === 'string' && isDir(start) ? start : PROJECT_ROOT });
+  return r.canceled ? null : r.filePaths[0];
 });
 handle('update-session-meta', (sessionId, patch) => {
   if (!UUID.test(sessionId)) return;
@@ -303,6 +383,28 @@ app.whenReady().then(() => {
       if (process.argv.includes('--selftest-light')) { await win.webContents.executeJavaScript("document.querySelector('#theme').click(); document.querySelector('.lay:nth-child(2)').click(); document.querySelector('.ws-chip:nth-child(2)').click()"); await new Promise((r) => setTimeout(r, 3000)); }
       if (process.argv.includes('--selftest-pop')) { await win.webContents.executeJavaScript("document.querySelector('.ai-row').click()"); await new Promise((r) => setTimeout(r, 500)); }
       if (process.argv.includes('--selftest-close')) { await win.webContents.executeJavaScript("document.querySelector('.ws-chip .x').click()"); await new Promise((r) => setTimeout(r, 500)); }
+      // --selftest-projects=<ordner>: Projekt mit vorhandenem Ordner anlegen, umbenennen, entfernen; danach Editor offen
+      const sp = process.argv.find((a) => a.startsWith('--selftest-projects='));
+      if (sp) {
+        const dir = sp.slice('--selftest-projects='.length);
+        const r = await win.webContents.executeJavaScript(`(async () => {
+          const out = {};
+          const c = await window.nexus.createProject({ name: 'Testprojekt', folder: ${JSON.stringify(dir)} });
+          setProjects(c.projects); out.created = c.id; out.afterCreate = state.projects.length;
+          try { await window.nexus.createProject({ name: 'Doppelt', folder: ${JSON.stringify(dir)} }); out.dup = 'nicht erkannt'; } catch (e) { out.dup = 'abgelehnt'; }
+          try { await window.nexus.createProject({ name: '', folder: ${JSON.stringify(dir)} }); out.empty = 'nicht erkannt'; } catch (e) { out.empty = 'abgelehnt'; }
+          setProjects(await window.nexus.updateProject(c.id, { name: 'Umbenannt', icon: '✨' }));
+          out.renamed = state.projects.find((p) => p.id === c.id).name;
+          renderProjects(); await selectProject(c.id);
+          await removeProject(state.projects.find((p) => p.id === c.id));
+          out.afterRemove = state.projects.length; out.stillThere = state.projects.some((p) => p.id === c.id);
+          out.active = state.project;
+          openProjectEditor(null);
+          return out;
+        })()`);
+        console.log('[selftest] projects', JSON.stringify(r), 'ordner noch da:', fs.existsSync(dir));
+        await new Promise((res) => setTimeout(res, 800));
+      }
       if (process.argv.includes('--selftest-modal')) { await win.webContents.executeJavaScript('openAiManager()'); await new Promise((r) => setTimeout(r, 500)); }
       const img = await win.webContents.capturePage();
       fs.writeFileSync(st.slice('--selftest='.length), img.toPNG());

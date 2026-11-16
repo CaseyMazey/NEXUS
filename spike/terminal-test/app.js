@@ -94,14 +94,129 @@ function swatchOverlay(anchor, colors, onPick, withNone) {
 
 // ---------- Projekte ----------
 function renderProjects() {
-  $('#project-list').replaceChildren(...state.projects.map((p) => {
+  const rows = state.projects.map((p) => {
     const d = state.desks[p.id];
     const count = d ? d.workspaces.length : 0;
-    return el('div', { class: 'project' + (p.id === state.project ? ' active' : ''), style: { '--pc': p.color }, onclick: () => selectProject(p.id) },
+    const edit = el('button', { class: 'p-edit', title: 'Projekt bearbeiten' }, '✎');
+    edit.onclick = (e) => { e.stopPropagation(); openProjectEditor(p); };
+    return el('div', { class: 'project' + (p.id === state.project ? ' active' : '') + (p.missing ? ' missing' : ''), style: { '--pc': p.color },
+      title: p.missing ? `Ordner nicht gefunden: ${p.path}` : p.path,
+      onclick: () => selectProject(p.id), oncontextmenu: (e) => { e.preventDefault(); openProjectEditor(p); } },
       el('span', { class: 'icon' }, p.icon), el('span', { class: 'name' }, p.name),
-      count ? el('span', { class: 'count', title: 'Workspaces im Desk' }, String(count)) : null);
-  }));
+      p.missing ? el('span', { class: 'p-warn' }, '⚠') : null,
+      count ? el('span', { class: 'count', title: 'Workspaces im Desk' }, String(count)) : null, edit);
+  });
+  $('#project-list').replaceChildren(...(rows.length ? rows : [el('div', { class: 'side-note' }, 'Noch keine Projekte. Lege oben mit ＋ eins an.')]));
 }
+// Projektliste vom Hauptprozess uebernehmen, dabei Objekte behalten (laufende Chats halten Referenzen)
+function setProjects(list) {
+  const old = new Map(state.projects.map((p) => [p.id, p]));
+  state.projects = list.map((n) => Object.assign(old.get(n.id) || {}, n));
+}
+// Projekt anlegen (p = null) oder bearbeiten
+function openProjectEditor(p) {
+  const isNew = !p;
+  const f = { name: p?.name || '', icon: p?.icon || state.icons[state.projects.length % state.icons.length],
+    color: p?.color || state.palette[state.projects.length % state.palette.length],
+    mode: 'new', folder: p?.path || '' };
+  let error = '';
+  let unlisted = [];
+  let busy = false;
+  const errText = (e) => String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+  const pick = async () => { const dir = await window.nexus.pickFolder(f.folder || state.projectRoot); if (dir) { f.folder = dir; if (!f.name.trim()) f.name = dir.split(/[\\/]/).pop(); f.mode = 'existing'; render(); } };
+  const save = async () => {
+    if (busy) return;
+    error = '';
+    busy = true;
+    try {
+      if (isNew) {
+        const r = await window.nexus.createProject({ name: f.name, icon: f.icon, color: f.color, newFolder: f.mode === 'new', folder: f.mode === 'existing' ? f.folder : null });
+        setProjects(r.projects);
+        closeModal();
+        renderProjects();
+        state.project = null;
+        selectProject(r.id);
+      } else {
+        const patch = { name: f.name, icon: f.icon, color: f.color };
+        if (f.folder !== p.path) patch.path = f.folder;
+        setProjects(await window.nexus.updateProject(p.id, patch));
+        closeModal();
+        if (p.id === state.project) { document.body.style.setProperty('--pc', p.color); renderDesk(); if (patch.path) refreshSessions(); }
+        renderProjects();
+      }
+    } catch (e) { error = errText(e); render(); } finally { busy = false; }
+  };
+  const remove = () => {
+    const n = state.desks[p.id]?.workspaces.length || 0;
+    openModal(() => {
+      document.querySelector('#modal .modal-box').replaceChildren(
+        el('h2', {}, `„${p.name}“ aus NEXUS entfernen?`),
+        el('p', { class: 'm-sub' }, `Das Projekt verschwindet aus der Liste${n ? `, sein Desk mit ${n} Workspace(s) wird geschlossen` : ''}.`),
+        el('p', { class: 'm-sub' }, `Der Ordner ${p.path} und alle Dateien darin bleiben unverändert. Claude-Code-Sitzungen bleiben ebenfalls erhalten. Du kannst den Ordner später wieder als Projekt aufnehmen.`),
+        el('div', { class: 'm-foot' },
+          el('button', { onclick: () => openProjectEditor(p) }, 'Abbrechen'),
+          el('button', { class: 'danger-fill', onclick: () => removeProject(p) }, 'Aus NEXUS entfernen')));
+    });
+  };
+  const input = (key, props) => el('input', { ...props, value: f[key], oninput: (e) => { f[key] = e.target.value; } });
+  const render = () => {
+    const box = document.querySelector('#modal .modal-box');
+    const icons = el('div', { class: 'emojis p-icons' }, ...state.icons.map((t) => el('button', { class: 'emoji' + (f.icon === t ? ' on' : ''), onclick: () => { f.icon = t; render(); } }, t)));
+    const colors = el('div', { class: 'swatches p-colors' }, ...state.palette.map((c) => el('button', { class: 'opt' + (f.color === c ? ' on' : ''), title: c, style: { background: c }, onclick: () => { f.color = c; render(); } })));
+    const radio = (mode, label, extra) => el('label', { class: 'm-check' }, el('input', { type: 'radio', name: 'pmode', ...(f.mode === mode ? { checked: '' } : {}), onchange: () => { f.mode = mode; render(); } }), label, extra || null);
+    const folderRow = el('div', { class: 'p-folder' }, el('code', {}, f.folder || 'Kein Ordner gewählt'), el('button', { onclick: pick }, isNew ? 'Ordner wählen…' : 'Ändern…'));
+    const folderPart = isNew ? [
+      radio('new', 'Neuen Ordner anlegen', el('code', { class: 'p-hint' }, `${state.projectRoot}\\${f.name.trim() || '…'}`)),
+      radio('existing', 'Vorhandenen Ordner verwenden'),
+      f.mode === 'existing' ? folderRow : null,
+      f.mode === 'existing' && unlisted.length ? el('div', { class: 'p-unlisted' }, el('div', { class: 'm-sub' }, `Noch nicht in NEXUS (aus ${state.projectRoot}):`),
+        ...unlisted.map((dir) => el('button', { class: 'p-chip' + (f.folder === dir ? ' on' : ''), onclick: () => { f.folder = dir; f.name = dir.split(/[\\/]/).pop(); render(); } }, dir.split(/[\\/]/).pop()))) : null,
+    ] : [folderRow, el('p', { class: 'm-sub' }, 'Ein anderer Ordner gilt für neue Claude-Code-Chats und Terminals; schon offene laufen im alten Ordner weiter.')];
+    box.replaceChildren(...[
+      el('div', { class: 'm-head' }, el('h2', {}, isNew ? 'Neues Projekt' : 'Projekt bearbeiten'), el('button', { onclick: closeModal }, 'Abbrechen')),
+      el('h3', {}, 'Name'),
+      input('name', { type: 'text', class: 'm-input', maxlength: '60', placeholder: 'z. B. Mein Projekt' }),
+      el('h3', {}, 'Ordner'),
+      ...folderPart,
+      el('h3', {}, 'Icon und Farbe'),
+      icons, colors,
+      error ? el('div', { class: 'm-error' }, error) : null,
+      el('div', { class: 'm-foot' },
+        isNew ? null : el('button', { class: 'danger', style: { marginRight: 'auto' }, onclick: remove }, 'Aus NEXUS entfernen…'),
+        el('button', { class: 'primary', onclick: save }, isNew ? 'Projekt anlegen' : 'Speichern')),
+    ].filter(Boolean));
+    const nameEl = box.querySelector('.m-input');
+    // Hinweis "neuer Ordner" live mitschreiben, ohne das Eingabefeld neu aufzubauen
+    nameEl.addEventListener('input', () => { const h = box.querySelector('.p-hint'); if (h) h.textContent = `${state.projectRoot}\\${f.name.trim() || '…'}`; });
+    nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+  };
+  openModal(render);
+  setTimeout(() => document.querySelector('#modal .m-input')?.focus(), 0);
+  if (isNew) window.nexus.unlistedFolders().then((u) => { unlisted = u; if (modalOpen && modalRender === render) render(); });
+}
+async function removeProject(p) {
+  for (const [id, l] of [...live]) if (l.projectId === p.id) destroyLive(id);
+  setProjects(await window.nexus.removeProject(p.id));
+  delete state.desks[p.id];
+  closeModal();
+  if (state.project === p.id) {
+    state.project = null;
+    const next = state.projects[0];
+    if (next) selectProject(next.id); else renderNoProject();
+  }
+  renderProjects();
+}
+function renderNoProject() {
+  $('#desk-title').replaceChildren(el('span', { class: 'd-name' }, 'Kein Projekt'));
+  $('#ws-chips').replaceChildren();
+  $('#layouts').replaceChildren();
+  $('#grid').className = 'layout-1';
+  $('#grid').replaceChildren(el('div', { class: 'cell' }, el('div', { class: 'cell-empty' }, 'Noch kein Projekt.',
+    el('button', { class: 'primary', onclick: () => openProjectEditor(null) }, '＋ Projekt anlegen'))));
+  $('#session-list').replaceChildren();
+  window.nexus.webHideAll();
+}
+$('#project-add').onclick = () => openProjectEditor(null);
 async function selectProject(id) {
   if (state.project === id) return;
   state.project = id;
@@ -251,11 +366,11 @@ function renderDesk() {
   icon.onclick = (e) => {
     e.stopPropagation();
     openOverlay(icon, [el('div', { class: 'emojis' }, ...state.icons.map((t) => el('button', { class: 'emoji', onclick: async (ev) => {
-      ev.stopPropagation(); closeOverlay(); Object.assign(p, await window.nexus.updateProject(p.id, { icon: t })); renderProjects(); renderDesk();
+      ev.stopPropagation(); closeOverlay(); setProjects(await window.nexus.updateProject(p.id, { icon: t })); renderProjects(); renderDesk();
     } }, t)))]);
   };
   const sw = el('span', { class: 'd-swatch', title: 'Projektfarbe', style: { background: p.color } });
-  sw.onclick = (e) => { e.stopPropagation(); swatchOverlay(sw, state.palette, async (c) => { Object.assign(p, await window.nexus.updateProject(p.id, { color: c })); document.body.style.setProperty('--pc', p.color); renderProjects(); renderDesk(); }); };
+  sw.onclick = (e) => { e.stopPropagation(); swatchOverlay(sw, state.palette, async (c) => { setProjects(await window.nexus.updateProject(p.id, { color: c })); document.body.style.setProperty('--pc', p.color); renderProjects(); renderDesk(); }); };
   $('#desk-title').replaceChildren(icon, el('span', { class: 'd-name' }, p.name), sw);
   // Raster-Knoepfe
   $('#layouts').replaceChildren(...[1, 2, 3, 4].map((n) => el('button', { class: 'lay' + (d.layout === n ? ' on' : ''), title: `${n} nebeneinander`, onclick: () => setLayout(n) }, layoutIcon(n))));
@@ -417,7 +532,7 @@ $('#add-ws').onclick = (e) => {
     el('button', { class: 'menu-item', style: { '--wc': '#6366f1' }, onclick: (ev) => { ev.stopPropagation(); closeOverlay(); openAiManager(); } },
       el('span', { class: 'mi-icon' }, '＋'), el('span', {}, 'KI in NEXUS aufnehmen…')))]);
 };
-$('#open-folder').onclick = () => window.nexus.openFolder(state.project);
+$('#open-folder').onclick = () => { if (state.project) window.nexus.openFolder(state.project); };
 
 // ---------- Theme hell/dunkel ----------
 // NEXUS-Oberflaeche, Claude-Code-Chat und Terminals ueber CSS-Variablen bzw. xterm-Theme.
@@ -622,7 +737,7 @@ function openAiManager() {
   renderThemeBtn();
   window.nexus.aiStatus().then((st) => { state.aiStatus = st; renderAis(); });
   const first = project(state.lastProject) || state.projects.find((p) => p.name === 'NEXUS') || state.projects[0];
-  if (first) selectProject(first.id);
+  if (first) selectProject(first.id); else renderNoProject();
 })();
 
 // Selbsttest (nur mit --selftest): Desk mit 3 Workspaces im 3er-Raster, ohne etwas zu senden.

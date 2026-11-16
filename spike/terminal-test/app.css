@@ -232,6 +232,32 @@ button.danger:hover { border-color: #ef4444; color: var(--red-text); }
 .m-foot { gap: 8px; }
 #theme { font-size: 14px; }
 
+/* Projekte verwalten */
+.side-head { display: flex; align-items: center; justify-content: space-between; padding-right: 10px; }
+.side-head button { padding: 0 7px; font-size: 13px; line-height: 20px; background: transparent; border-color: transparent; color: var(--muted); }
+.side-head button:hover { color: var(--text); border-color: var(--pc); }
+.project .p-edit { padding: 0 6px; font-size: 12px; background: transparent; border-color: transparent; color: var(--muted); visibility: hidden; }
+.project:hover .p-edit { visibility: visible; }
+.project .p-edit:hover { color: var(--text); border-color: var(--line-strong); }
+.project.missing .name { color: var(--muted); text-decoration: line-through dotted; }
+.p-warn { color: var(--warn-text); font-size: 12px; }
+.m-input { width: 100%; box-sizing: border-box; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; font: inherit; }
+.m-input:focus { outline: none; border-color: var(--pc); }
+.modal-box input[type="radio"] { margin: 0; accent-color: var(--pc); }
+.p-hint { color: var(--muted); font-size: 11px; margin-left: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.p-folder { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.p-folder code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--code-bg); padding: 6px 8px; border-radius: 6px; font-size: 12px; }
+.p-unlisted { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.p-unlisted .m-sub { width: 100%; }
+.p-chip { font-size: 12px; padding: 3px 9px; border-radius: 99px; }
+.p-chip.on { border-color: var(--pc); background: color-mix(in srgb, var(--pc) 18%, var(--panel-2)); }
+.p-icons, .p-colors { max-width: none; }
+.p-colors { margin-top: 8px; }
+.p-icons .emoji.on { border-color: var(--pc); background: color-mix(in srgb, var(--pc) 20%, var(--panel-2)); }
+.p-colors .opt.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--text); }
+button.danger-fill { background: #dc2626; border-color: #dc2626; color: #fff; }
+button.danger-fill:hover { background: #b91c1c; }
+
 /* ---------- Helles Theme (Sonne/Mond-Knopf) ---------- */
 :root[data-theme="light"] {
   --bg: #f5f6f8; --panel: #ffffff; --panel-2: #eef0f4; --line: #d9dce3; --line-strong: #b8bdc8;
