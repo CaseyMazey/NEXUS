@@ -59,7 +59,11 @@
     const p = opts.project;
     const log = el('div', { class: 'chat-log' });
     const inner = el('div', { class: 'chat-inner' });
-    log.append(inner);
+    // Denk-Anzeige: steht immer unter dem letzten Eintrag, solange Claude arbeitet
+    const thinkText = el('span', { class: 'think-text' }, 'Denkt nach…');
+    const thinkTime = el('span', { class: 'think-time' });
+    const thinking = el('div', { class: 'thinking', hidden: '' }, el('span', { class: 'think-icon' }, '✳'), thinkText, thinkTime);
+    log.append(inner, thinking);
     const attachRow = el('div', { class: 'attach-row', hidden: '' });
     const input = el('textarea', { rows: '1', placeholder: 'Nachricht an Claude Code…', title: '/ für Befehle · Bilder einfügen, hineinziehen oder 📎' });
     const fileInput = el('input', { type: 'file', accept: IMAGE_TYPES.join(','), multiple: '', hidden: '' });
@@ -86,7 +90,34 @@
     const nearBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 120;
     const scrollDown = () => { log.scrollTop = log.scrollHeight; };
     const append = (node) => { const stick = nearBottom(); inner.append(node); if (stick) scrollDown(); return node; };
-    function setBusy(b) { view.busy = b; stopBtn.hidden = !b; sendBtn.hidden = b; opts.onBusy?.(b); }
+    // Status der Denk-Anzeige: was gerade passiert, wie lange schon, und ob noch etwas kommt
+    const think = { start: 0, last: 0, timer: null, tool: null, writing: false, waiting: false };
+    const secs = (ms) => { const s = Math.floor(ms / 1000); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} Min. ${s % 60} s`; };
+    function renderThinking() {
+      if (!view.busy) return;
+      const now = Date.now();
+      const quiet = now - think.last;
+      thinkText.textContent = think.waiting ? 'Wartet auf deine Entscheidung'
+        : think.tool ? `Verwendet ${think.tool}…` : think.writing ? 'Schreibt…' : 'Denkt nach…';
+      thinking.classList.toggle('paused', think.waiting);
+      // Lange still, aber Prozess laeuft noch: Hinweis statt Raten
+      const stale = !think.waiting && quiet > 90000;
+      thinking.classList.toggle('stale', stale);
+      thinkTime.textContent = secs(now - think.start) + (stale ? ` · seit ${secs(quiet)} keine Rückmeldung – mit ■ abbrechen?` : '');
+    }
+    function setBusy(b) {
+      view.busy = b; stopBtn.hidden = !b; sendBtn.hidden = b; opts.onBusy?.(b);
+      clearInterval(think.timer);
+      thinking.hidden = !b;
+      if (b) {
+        Object.assign(think, { start: Date.now(), last: Date.now(), tool: null, writing: false, waiting: false });
+        think.timer = setInterval(renderThinking, 1000);
+        renderThinking();
+        if (nearBottom()) scrollDown();
+      }
+    }
+    // jedes Ereignis aus Claude Code zaehlt als Lebenszeichen
+    function activity(patch) { think.last = Date.now(); if (patch) Object.assign(think, patch); renderThinking(); }
     function addUser(text, imgs = []) {
       const bubble = el('div', { class: 'bubble' });
       if (imgs.length) bubble.append(el('div', { class: 'bubble-imgs' }, ...imgs.map((u) => el('img', { src: u }))));
@@ -195,8 +226,10 @@
 
     // ----- Ereignisse aus Claude Code -----
     view.handle = (ev) => {
-      if (ev.type === 'message-start' && !ev.parent) { live = null; return; }
+      if (view.busy) activity();
+      if (ev.type === 'message-start' && !ev.parent) { live = null; think.writing = false; return; }
       if (ev.type === 'text-delta' && !ev.parent) {
+        if (!think.writing) activity({ writing: true, tool: null });
         if (!live) live = { text: '', el: append(el('div', { class: 'msg assistant streaming' })) };
         live.text += ev.text;
         turnHadText = true;
@@ -207,6 +240,7 @@
       }
       if (ev.type === 'permission') {
         opts.onWaiting?.(true);
+        activity({ waiting: true });
         const always = ev.suggestions.some((s) => s.type === 'setMode' && s.mode === 'acceptEdits') ? 'Änderungen in diesem Chat immer erlauben' : (ev.suggestions.length ? 'Immer erlauben' : null);
         const card = el('div', { class: 'perm' },
           el('div', { class: 'perm-head' }, el('span', {}, TOOL_ICONS[ev.tool] || '🔐'), el('b', {}, `Claude möchte ${ev.displayName || ev.tool} verwenden`)),
@@ -218,6 +252,7 @@
           btns.replaceChildren(el('span', { class: 'perm-done' }, label));
           card.classList.add(decision === 'deny' ? 'denied' : 'allowed');
           opts.onWaiting?.(false);
+          activity({ waiting: false });
         };
         btns.append(el('button', { class: 'primary', onclick: () => decide('allow', '✓ Erlaubt') }, 'Erlauben'));
         if (always) btns.append(el('button', { onclick: () => decide('always', '✓ Immer erlaubt') }, always));
@@ -240,7 +275,7 @@
               turnHadText = true;
               if (live) { live.el.classList.remove('streaming'); live.el.replaceChildren(md(c.text)); live = null; } else addAssistant(c.text);
             }
-            if (c.type === 'tool_use' && !tools.has(c.id)) { live = null; addTool({ id: c.id, name: c.name, input: c.input }); }
+            if (c.type === 'tool_use' && !tools.has(c.id)) { live = null; addTool({ id: c.id, name: c.name, input: c.input }); activity({ tool: c.name, writing: false }); }
           }
           return;
         }
@@ -252,6 +287,7 @@
             const text = typeof c.content === 'string' ? c.content : (c.content || []).map((x) => x.text || '').join('\n');
             t.card.classList.toggle('error', !!c.is_error);
             t.card._body.append(el('div', { class: 'tool-result-label' }, c.is_error ? 'Fehler' : 'Ergebnis'), el('pre', {}, text.slice(0, 6000)));
+            activity({ tool: null });
           }
           return;
         }
@@ -281,9 +317,10 @@
       usage.textContent = u ? [f(u.five_hour, '5 Std.'), f(u.seven_day, 'Woche')].filter(Boolean).join(' · ') : '';
       usage.title = 'Nutzung deines Claude-Abos' + (usage.dataset.model ? ' · Modell ' + usage.dataset.model : '');
     };
+    view.setBusy = setBusy; // fuer Selbsttests
     view.focus = () => { input.focus(); };
     view.scrollDown = scrollDown;
-    view.destroy = () => { if (view.chatId) window.nexus.chatClose(view.chatId); root.remove(); };
+    view.destroy = () => { clearInterval(think.timer); if (view.chatId) window.nexus.chatClose(view.chatId); root.remove(); };
 
     // ----- Start -----
     view.ready = (async () => {

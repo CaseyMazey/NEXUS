@@ -143,6 +143,20 @@ input[type=search] { width: 100%; background: var(--bg); color: var(--text); bor
 .note { color: var(--muted); font-size: 12px; text-align: center; margin: 10px 0; }
 .note.warn { color: var(--warn-text); }
 .note.meta { font-size: 11px; opacity: .7; }
+/* Denk-Anzeige, solange Claude arbeitet */
+.thinking { max-width: 820px; margin: 0 auto; padding: 4px 20px 16px; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+.thinking[hidden] { display: none; }
+.think-icon { color: #d97757; font-size: 20px; line-height: 1; display: inline-block; animation: think-spin 2.4s cubic-bezier(.5, 0, .5, 1) infinite, think-pulse 1.2s ease-in-out infinite alternate; }
+.think-text { background: linear-gradient(90deg, var(--muted) 0%, var(--text) 50%, var(--muted) 100%); background-size: 200% 100%;
+              -webkit-background-clip: text; background-clip: text; color: transparent; animation: think-shimmer 2s linear infinite; }
+.think-time { font-size: 11px; opacity: .8; }
+.thinking.paused .think-icon { animation: think-pulse 1.6s ease-in-out infinite alternate; }
+.thinking.paused .think-text { animation: none; color: var(--warn-text); background: none; }
+.thinking.stale .think-time { color: var(--warn-text); opacity: 1; }
+@keyframes think-spin { to { transform: rotate(360deg); } }
+@keyframes think-pulse { from { opacity: .55; } to { opacity: 1; } }
+@keyframes think-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .think-icon, .think-text { animation: none !important; } .think-text { color: var(--muted); background: none; } }
 .welcome { text-align: center; margin-top: 10vh; color: var(--muted); }
 .welcome .wicon { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; font-size: 28px; margin: 0 auto 10px; }
 .welcome h3 { color: var(--text); margin: 0 0 4px; }

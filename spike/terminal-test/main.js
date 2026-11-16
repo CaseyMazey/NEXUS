@@ -405,6 +405,13 @@ app.whenReady().then(() => {
         console.log('[selftest] projects', JSON.stringify(r), 'ordner noch da:', fs.existsSync(dir));
         await new Promise((res) => setTimeout(res, 800));
       }
+      // --selftest-thinking: Denk-Anzeige im ersten Chat zeigen (simuliert, es wird nichts gesendet)
+      if (process.argv.includes('--selftest-thinking')) {
+        await win.webContents.executeJavaScript(`(() => { document.querySelector('.lay').click(); document.querySelector('.ws-chip').click();
+          const l = [...live.values()].find((x) => x.view && x.view.setBusy); l.view.setBusy(true);
+          l.view.handle({ type: 'raw', data: { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'selftest-1', name: 'WebFetch', input: { url: 'https://example.com' } }] } } }); })()`);
+        await new Promise((res) => setTimeout(res, 2600));
+      }
       if (process.argv.includes('--selftest-modal')) { await win.webContents.executeJavaScript('openAiManager()'); await new Promise((r) => setTimeout(r, 500)); }
       const img = await win.webContents.capturePage();
       fs.writeFileSync(st.slice('--selftest='.length), img.toPNG());
