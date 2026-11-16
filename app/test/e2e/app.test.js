@@ -133,3 +133,44 @@ test('Terminal: Claude Code startet im eingebetteten Terminal (node-pty)', async
     await page.waitForFunction(() => (document.querySelector('.xterm-rows')?.textContent || '').trim().length > 20, null, { timeout: 30000 });
   } finally { await app.close(); }
 });
+
+test('Fenster merkt sich Groesse und Position, Protokoll wird geschrieben, Claude-Code-Status kommt an', async () => {
+  const { app, page, dir } = await launch({ version: 1, projects: [], desks: {}, ais: [], settings: { language: 'de' } });
+  try {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setBounds({ x: 120, y: 90, width: 1111, height: 777 }));
+    await page.waitForFunction(() => state.claude !== undefined && state.claude !== null, null, { timeout: 30000 }).catch(() => {});
+  } finally { await app.close(); }
+  const saved = JSON.parse(fs.readFileSync(path.join(dir, 'nexus-data.json'), 'utf8')).window;
+  assert.equal(saved.width, 1111);
+  assert.equal(saved.height, 777);
+  const logs = fs.readdirSync(path.join(dir, 'logs'));
+  assert.equal(logs.length, 1);
+  const text = fs.readFileSync(path.join(dir, 'logs', logs[0]), 'utf8');
+  assert.match(text, /\[start\] NEXUS/);
+  assert.doesNotMatch(text, /@[\w-]+\.\w/); // keine E-Mail-Adresse im Protokoll
+  // erneut starten: gleiche Groesse
+  const app2 = await electron.launch(process.env.NEXUS_EXE ? { executablePath: process.env.NEXUS_EXE, args: [`--nexus-data=${dir}`] } : { executablePath: electronPath, args: [APP, `--nexus-data=${dir}`] });
+  try {
+    const page2 = await app2.firstWindow();
+    await page2.waitForSelector('body[data-ready="1"]');
+    const b = await app2.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
+    assert.equal(b.width, 1111);
+    assert.equal(b.height, 777);
+  } finally { await app2.close(); }
+});
+
+test('Claude Code fehlt: Hinweis statt 3C', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+  });
+  try {
+    await page.waitForSelector('.composer textarea');
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('claude-status', { installed: false, loggedIn: false }));
+    await page.waitForSelector('.claude-hint');
+    assert.match(await page.textContent('.claude-hint'), /Claude Code ist nicht installiert/);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('claude-status', { installed: true, loggedIn: false }));
+    await page.waitForFunction(() => /nicht angemeldet/.test(document.querySelector('.claude-hint')?.textContent || ''));
+  } finally { await app.close(); }
+});

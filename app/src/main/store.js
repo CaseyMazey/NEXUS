@@ -47,6 +47,7 @@ function ensureShape(d) {
   if (!Array.isArray(d.slashCommands)) d.slashCommands = [];
   if (!obj(d.settings)) d.settings = {};
   if (!Array.isArray(d.ais)) d.ais = [];
+  if (d.window && typeof d.window !== 'object') delete d.window;
   return d;
 }
 

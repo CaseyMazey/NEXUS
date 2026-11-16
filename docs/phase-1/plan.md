@@ -53,6 +53,13 @@ NEXUS ist ein installierbares Windows-Programm: **Setup ausführen → NEXUS im 
 - Haken: Das Repo ist privat. Für Variante A braucht es entweder ein öffentliches Release-Repo (nur die fertigen Dateien, kein Quellcode) oder einen eingebauten Lese-Token.
 
 ### M4 – Stabilität im Alltag
+
+> **Stand 2026-11-16: umgesetzt** (Branch `phase-1/stability`).
+> - **Protokoll:** in `%APPDATA%\NEXUS\logs`, 14 Tage aufbewahrt, E-Mail-Adressen werden unkenntlich gemacht. Zu öffnen über ⚙ → „Protokoll öffnen“.
+> - **Startfehler und Abstürze:** Statt einer Fehlerseite gibt es eine Meldung mit „Protokoll öffnen“ bzw. „Neu laden“. Für Daten aus einer neueren Version gibt es eine eigene Meldung.
+> - **Claude Code:** NEXUS prüft beim Start, ob Claude Code installiert und angemeldet ist (`claude auth status`, übernommen wird nur ja/nein). Fehlt es, zeigt 3C einen Hinweis mit Anleitung.
+> - **Fenster:** Größe, Position und maximiert werden gemerkt.
+> - **Langsame KI-Anmeldung, Ergebnis der Messung im Firmennetz:** Der Proxy antwortet direkt und schnell, ChatGPT lädt in rund 1 s. Bei claude.ai brauchen die großen Skripte (`assets-proxy.anthropic.com`) und hCaptcha je 2–5 s, die Seite insgesamt rund 6 s. Das passt zu einem Webfilter, der Dateien prüft. `auth.openai.com` wird von Sophos mit eigenem Zertifikat abgefangen. An NEXUS liegt die Langsamkeit nicht.
 - Protokolldatei (`%APPDATA%\NEXUS\logs`) statt Konsolenausgabe; „Protokoll öffnen“ im Menü.
 - Fehlerseite statt leerem Fenster, wenn etwas beim Start scheitert.
 - Prüfen beim Start: Ist Claude Code installiert und angemeldet? Wenn nicht, verständlicher Hinweis statt Fehlermeldung im Chat.
