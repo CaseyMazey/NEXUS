@@ -70,10 +70,28 @@
     const attachBtn = el('button', { class: 'icon-btn', title: 'Bild anhängen' }, '📎');
     const sendBtn = el('button', { class: 'send', title: 'Senden' }, '↑');
     const stopBtn = el('button', { class: 'stop', title: 'Stoppen', hidden: '' }, '■');
-    const modeSel = el('select', { title: 'Berechtigungen' },
-      el('option', { value: 'default' }, 'Bei Änderungen fragen'),
-      el('option', { value: 'acceptEdits' }, 'Änderungen automatisch'),
-      el('option', { value: 'plan' }, 'Nur planen'));
+    // Rechte-Modus als Umschalter: Manuell (fragt) · Auto (Claude entscheidet, fragt nur bei Riskantem) · Plan
+    const MODE_INFO = {
+      default: ['✋ Manuell', 'Manuell: Claude fragt vor Änderungen und Befehlen'],
+      auto: ['⚡ Auto', 'Auto: Claude entscheidet selbst und fragt nur bei riskanten Schritten'],
+      plan: ['📝 Plan', 'Nur planen: Claude liest und schlägt vor, ändert aber nichts'],
+    };
+    let mode = MODE_INFO[opts.getMode?.()] ? opts.getMode() : 'default';
+    const modeSel = el('div', { class: 'mode-switch', role: 'radiogroup', title: 'Berechtigungen' });
+    function renderMode() {
+      modeSel.replaceChildren(...Object.entries(MODE_INFO).map(([m, [label, hint]]) => el('button', {
+        class: 'mode-' + m + (m === mode ? ' on' : ''), role: 'radio', 'aria-checked': String(m === mode), title: hint,
+        onclick: () => setMode(m),
+      }, label)));
+    }
+    function setMode(m) {
+      if (m === mode) return;
+      mode = m;
+      renderMode();
+      if (view.chatId) window.nexus.chatMode(view.chatId, m);
+      opts.onMode?.(m);
+    }
+    renderMode();
     const usage = el('div', { class: 'usage' });
     const slashBox = el('div', { class: 'slash-box', hidden: '' });
     const box = el('div', { class: 'composer-box' }, slashBox, attachRow, input, el('div', { class: 'composer-actions' }, attachBtn, modeSel, usage, stopBtn, sendBtn), fileInput);
@@ -211,7 +229,6 @@
     }
     sendBtn.onclick = send;
     stopBtn.onclick = () => window.nexus.chatInterrupt(view.chatId);
-    modeSel.onchange = () => window.nexus.chatMode(view.chatId, modeSel.value);
     input.addEventListener('keydown', (e) => {
       if (!slashBox.hidden) {
         if (e.key === 'ArrowDown') { e.preventDefault(); slashIndex = (slashIndex + 1) % slashItems.length; renderSlash(); return; }
@@ -324,7 +341,7 @@
 
     // ----- Start -----
     view.ready = (async () => {
-      const res = await window.nexus.openChat({ projectId: p.id, resumeId: view.sessionId, mode: 'default' });
+      const res = await window.nexus.openChat({ projectId: p.id, resumeId: view.sessionId, mode });
       view.chatId = res.chatId;
       if (res.history.length) {
         view.titled = true;

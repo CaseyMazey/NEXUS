@@ -3,7 +3,8 @@
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 
-const MODES = new Set(['default', 'acceptEdits', 'plan']);
+// default = manuell (fragt), auto = Claude Code entscheidet selbst und fragt nur bei Riskantem, plan = nur planen
+const MODES = new Set(['default', 'acceptEdits', 'auto', 'plan']);
 
 class ChatSession {
   constructor({ cwd, resumeId, mode, model, env, onEvent }) {

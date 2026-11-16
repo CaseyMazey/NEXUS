@@ -3,7 +3,7 @@
 // - Claude / ChatGPT / Gemini: eingebettete Webseiten (WebContentsView, nur passiv)
 // - Pro Projekt ein "Desk": Workspaces, Raster und der jeweils fortzusetzende Chat
 
-const { app, BrowserWindow, ipcMain, shell, nativeTheme, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme, dialog, Notification } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -60,6 +60,8 @@ const SETTINGS = {
   // zwischen diesen beiden wechselt der Sonne/Mond-Knopf
   lightTheme: (v) => THEMES[v]?.mode === 'light',
   darkTheme: (v) => THEMES[v]?.mode === 'dark',
+  chatMode: (v) => ['default', 'auto', 'plan'].includes(v),
+  notify: (v) => typeof v === 'boolean',
 };
 // Themes: mode bestimmt, was den KI-Seiten als prefers-color-scheme gemeldet wird; bg ist die Fensterfarbe beim Start.
 // Die Farben selbst stehen in app.css (:root[data-theme=…]).
@@ -199,6 +201,7 @@ function openChat({ projectId, resumeId, mode }) {
     cwd: project.path, resumeId, mode, env: cleanEnv(),
     onEvent: (ev) => {
       if (ev.type === 'nexus-exit') chats.delete(chatId);
+      if (ev.type === 'permission') notifyDecision(project, chatId, ev);
       if (ev.type === 'raw' && ev.data.type === 'system' && ev.data.subtype === 'init' && Array.isArray(ev.data.slash_commands)) {
         data.slashCommands = ev.data.slash_commands.filter((s) => typeof s === 'string').slice(0, 400);
         saveData();
@@ -208,6 +211,32 @@ function openChat({ projectId, resumeId, mode }) {
   });
   chats.set(chatId, session);
   return { chatId, history: resumeId ? readHistory(project.path, resumeId) : [] };
+}
+// Windows-Benachrichtigung (unten rechts), wenn Claude eine Entscheidung braucht und NEXUS nicht im Vordergrund ist.
+// Klick holt NEXUS nach vorn und zeigt den betroffenen Chat.
+const notes = new Set(); // Referenzen halten, sonst raeumt der GC die Benachrichtigung samt Klick-Handler weg
+function showWindow() {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+}
+function notifyDecision(project, chatId, ev) {
+  if (!win || win.isDestroyed() || win.isFocused() || data.settings.notify === false) return;
+  win.flashFrame(true); // Taskleisten-Knopf blinkt, bis NEXUS wieder aktiv ist
+  if (!Notification.isSupported()) return;
+  const what = ev.displayName || ev.tool || 'ein Werkzeug';
+  const n = new Notification({
+    title: `NEXUS braucht deine Entscheidung`,
+    body: `${project.name}: Claude möchte ${what} verwenden.`,
+    icon: path.join(__dirname, 'build', 'icon.png'),
+  });
+  notes.add(n);
+  const done = () => notes.delete(n);
+  n.on('click', () => { showWindow(); toUi('focus-chat', chatId); done(); });
+  n.on('close', done);
+  n.on('show', () => console.log('[notify] angezeigt'));
+  n.on('failed', (e, err) => { console.log('[notify] fehlgeschlagen', err); done(); });
+  n.show();
 }
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 function buildContent(payload) {
@@ -376,6 +405,7 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, 'index.html'));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.on('focus', () => win.flashFrame(false));
   win.webContents.on('console-message', (e) => {
     if (e.level === 'warning' || e.level === 'error') console.log(`[ui:${e.level}] ${e.message} (${e.sourceId}:${e.lineNumber})`);
   });
@@ -392,8 +422,21 @@ const primary = isTestRun || app.requestSingleInstanceLock();
 if (!primary) app.quit();
 app.on('second-instance', () => { if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.focus(); } });
 
+// Windows zeigt Benachrichtigungen nicht installierter Apps nur, wenn eine Startmenue-Verknuepfung dieselbe App-ID traegt.
+// Die von create-shortcuts.ps1 angelegten Verknuepfungen bekommen sie hier nachgetragen.
+function tagShortcuts() {
+  if (process.platform !== 'win32' || (isTestRun && !process.argv.includes('--selftest-notify'))) return;
+  const links = [path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'NEXUS.lnk'), path.join(app.getPath('desktop'), 'NEXUS.lnk')];
+  for (const lnk of links) {
+    try {
+      if (fs.existsSync(lnk) && shell.readShortcutLink(lnk).appUserModelId !== 'NEXUS') shell.writeShortcutLink(lnk, 'update', { appUserModelId: 'NEXUS' });
+    } catch (e) { console.log('[shortcut]', lnk, e.message); }
+  }
+}
+
 app.whenReady().then(() => {
   if (!primary) return;
+  tagShortcuts();
   applyTheme();
   createWindow();
   // --selftest=<png>: baut im Test-Datenordner einen Desk auf (ohne Nachrichten zu senden), Screenshot, Ende.
@@ -436,6 +479,19 @@ app.whenReady().then(() => {
         })()`);
         console.log('[selftest] projects', JSON.stringify(r), 'ordner noch da:', fs.existsSync(dir));
         await new Promise((res) => setTimeout(res, 800));
+      }
+      // --selftest-notify: Auto-Modus im ersten Chat waehlen, dann Benachrichtigung wie bei einer Rueckfrage (Fenster gilt als im Hintergrund)
+      if (process.argv.includes('--selftest-notify')) {
+        const r = await win.webContents.executeJavaScript(`(() => { document.querySelector('.lay').click(); document.querySelector('.ws-chip').click();
+          document.querySelector('.mode-switch .mode-auto').click();
+          const l = [...live.values()].find((x) => x.view); return { chatId: l.view.chatId, mode: document.querySelector('.mode-switch .on').textContent }; })()`);
+        await new Promise((res) => setTimeout(res, 500));
+        console.log('[selftest] modus', r.mode, 'gespeichert:', data.settings.chatMode, 'shortcut-id:', (() => { try { return shell.readShortcutLink(path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'NEXUS.lnk')).appUserModelId; } catch (e) { return e.message; } })());
+        win.blur();
+        const realFocus = win.isFocused; win.isFocused = () => false;
+        notifyDecision({ name: 'Selbsttest' }, r.chatId, { displayName: 'Bash' });
+        win.isFocused = realFocus;
+        await new Promise((res) => setTimeout(res, 2500));
       }
       // --selftest-thinking: Denk-Anzeige im ersten Chat zeigen (simuliert, es wird nichts gesendet)
       if (process.argv.includes('--selftest-thinking')) {

@@ -326,6 +326,9 @@ function ensureLive(ws, pid) {
     l.view = NexusChat.create(body, {
       project: p, sessionId: ws.sessionId,
       getSlashCommands: () => state.slashCommands,
+      // zuletzt gewaehlter Modus gilt auch fuer neue Chats
+      getMode: () => state.settings.chatMode,
+      onMode: async (m) => { state.settings = await window.nexus.setSetting('chatMode', m); },
       onSession: (id) => { ws.sessionId = id; saveDeskFor(pid); refreshSessionsIf(pid); },
       onTitle: (t) => { ws.title = t; saveDeskFor(pid); renderChrome(); },
       onBusy: (b) => { l.busy = b; renderChrome(); },
@@ -516,6 +519,15 @@ window.nexus.onChatEvent((chatId, ev) => {
   if (!early.has(chatId)) early.set(chatId, []);
   early.get(chatId).push(ev);
 });
+// Klick auf die Windows-Benachrichtigung: Projekt und Chat zeigen, der auf eine Entscheidung wartet
+window.nexus.onFocusChat(async (chatId) => {
+  const entry = [...live].find(([, l]) => l.view && l.view.chatId === chatId);
+  if (!entry) return;
+  const [wsId, l] = entry;
+  if (state.project !== l.projectId) await selectProject(l.projectId);
+  placeInFocus(wsId);
+  l.view.scrollDown();
+});
 setInterval(() => {
   for (const [chatId, list] of early) {
     for (const l of live.values()) if (l.view && l.view.chatId === chatId) { early.delete(chatId); list.forEach((ev) => l.view.handle(ev)); }
@@ -594,6 +606,10 @@ function openSettings() {
       el('div', { class: 'theme-label' }, '☀️ Helles Theme'), pick('light'),
       el('div', { class: 'theme-label' }, '🌙 Dunkles Theme'), pick('dark'),
       el('p', { class: 'm-sub' }, 'KIs im Web (Claude, ChatGPT …) werden hell oder dunkel, wenn ihr Theme dort auf „System“ steht. Die genauen Farben bestimmt der Anbieter.'),
+      el('h3', {}, 'Benachrichtigungen'),
+      el('label', { class: 'm-check' }, el('input', { type: 'checkbox', ...(state.settings.notify !== false ? { checked: '' } : {}),
+        onchange: async (e) => { state.settings = await window.nexus.setSetting('notify', e.target.checked); } }),
+      'Windows-Benachrichtigung, wenn Claude eine Entscheidung braucht und NEXUS im Hintergrund ist'),
       el('h3', {}, 'Workspaces'),
       el('label', { class: 'm-check' }, el('input', { type: 'checkbox', ...(state.settings.confirmRemove !== false ? { checked: '' } : {}),
         onchange: async (e) => { state.settings = await window.nexus.setSetting('confirmRemove', e.target.checked); } }),

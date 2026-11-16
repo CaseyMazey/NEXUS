@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('nexus', {
   chatMode: (id, mode) => ipcRenderer.invoke('chat-mode', id, mode),
   chatClose: (id) => ipcRenderer.invoke('chat-close', id),
   onChatEvent: (fn) => ipcRenderer.on('chat-event', (e, id, ev) => fn(id, ev)),
+  onFocusChat: (fn) => ipcRenderer.on('focus-chat', (e, id) => fn(id)),
   // Web-Workspaces
   webEnsure: (wsId, type, url) => ipcRenderer.send('web-ensure', wsId, type, url),
   webBounds: (wsId, rect) => ipcRenderer.send('web-bounds', wsId, rect),
