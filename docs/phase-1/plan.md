@@ -61,15 +61,28 @@ Reihenfolge zum Abstimmen:
 4. Tastenkürzel (Projekt wechseln, Workspace wechseln, neuer Chat).
 5. Codex als zweiter Agent mit eigener Oberfläche (`codex app-server`, Abo-Login vorgesehen).
 
-## Entscheidungen, die du treffen musst
+## Entscheidungen (getroffen 2026-11-16)
 
-1. **Nur für dich oder auch für andere?** Der Claude-Code-Chat läuft über dein Abo im Headless-Modus. Im Konzept ist das als *reines Privatwerkzeug* entschieden (Grauzone bei Anthropics Regeln). Soll NEXUS an andere gehen, braucht dieser Teil einen API-Key oder eine Genehmigung, und der Installer sollte signiert sein. → Bestimmt M2 und M3.
-2. **Firmenrechner:** Darf dort ein selbst gebautes, unsigniertes Programm installiert werden? Windows SmartScreen warnt beim ersten Start; Firmen-Richtlinien oder Sophos können es blockieren. → Vor M2 kurz mit der IT klären.
-3. **Updates:** Variante A (automatisch, braucht Release-Repo oder Token) oder B (manuell)?
-4. **Struktur:** `app/` im selben Repo (Vorschlag) oder ein neues Repo nur für die App?
+1. **Für alle, als lokaler Rahmen.** NEXUS ist ein Rahmen für KIs, den jeder frei nutzen kann. Jede Person verbindet ihre eigenen KIs und meldet sich dort mit den eigenen Daten an. NEXUS selbst hat **kein Konto, keine Anmeldung und keinen Server**. Es läuft komplett lokal.
+2. **Firmenrechner:** Programme selbst zu installieren ist erlaubt.
+3. **Updates automatisch** (Variante A): electron-updater mit GitHub Releases.
+4. **Struktur:** `app/` im selben Repo.
+
+### Was daraus folgt
+- **Kein fest eingebauter Pfad.** Den Projektordner (heute `Documents\Projekt`) wählt man beim ersten Start. Es gibt keine vorab eingetragenen KIs und keine persönlichen Daten im Installer.
+- **Erster Start mit Einrichtungs-Assistent:** Projektordner wählen, die ersten KIs aufnehmen, prüfen, ob Claude Code installiert ist. Fehlt es, erklärt NEXUS, wie man es installiert, und 3C bleibt aus, bis es da ist.
+- **3C nutzt das Claude Code der jeweiligen Person** mit deren eigener Anmeldung. NEXUS liefert Claude Code nicht mit, meldet niemanden an und speichert keine Zugangsdaten. Die Web-KIs sind die echten Anbieterseiten mit der eigenen Anmeldung, ohne eingeschleuste Skripte (bleibt harte Regel).
+- **Updates für alle** gehen nur, wenn die fertigen Dateien öffentlich herunterladbar sind. Das Repo ist privat → Frage 5 unten.
+- **Unsignierter Installer:** Bei anderen Personen warnt Windows SmartScreen beim ersten Start („Unbekannter Herausgeber“). Für den Anfang reicht das, eine Signatur kann später kommen (Frage 7).
+
+### Noch offen (nicht dringend für M1)
+5. **Veröffentlichung:** Das Repo öffentlich machen (Open Source, dann mit Lizenz) oder ein eigenes öffentliches Repo nur für die Setup-Dateien? Muss vor M3 entschieden sein.
+6. **Sprache:** Nur Deutsch, oder Deutsch und Englisch? Wenn andere es nutzen sollen, lohnt es sich, die Texte von Anfang an austauschbar anzulegen (kostet in M1 wenig).
+7. **Code-Signing** später (z. B. Azure Trusted Signing, etwa 10 USD im Monat), damit die Windows-Warnung verschwindet.
+8. **Anthropics Regeln für 3C:** NEXUS startet das offizielle Claude Code der Person und bietet selbst keine Claude-Anmeldung an. Vor einer Veröffentlichung noch einmal die aktuellen Regeln für Drittanbieter-Apps prüfen.
 
 ## Reihenfolge und Arbeitsweise
-- M1 → M2 → M4 → M3 → M5. M1 und M2 zuerst, damit du schnell eine installierte Version nutzt; M3 erst, wenn die Update-Frage entschieden ist.
+- M1 → M2 → M4 → M3 → M5. M1 und M2 zuerst, damit du schnell eine installierte Version nutzt; M3 erst, wenn Frage 5 (Veröffentlichung) entschieden ist.
 - Ein Branch pro Meilenstein (`phase-1/fundament`, `phase-1/installer`, …), Pull Request nach `main`.
 - Der Prototyp bleibt startbar, bis die installierte Version alles kann. Erst dann werden die alten Verknüpfungen entfernt.
 - Jeder Meilenstein endet mit: Tests grün, Installer gebaut, einmal auf deinem Rechner installiert und mit deinen echten Daten gestartet.
