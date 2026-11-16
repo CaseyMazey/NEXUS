@@ -5,6 +5,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('nexus', {
   getState: () => ipcRenderer.invoke('get-state'),
   relaunch: () => ipcRenderer.invoke('relaunch'),
+  updateCheck: () => ipcRenderer.invoke('update-check'),
+  updateInstall: () => ipcRenderer.invoke('update-install'),
+  onUpdateState: (fn) => ipcRenderer.on('update-state', (e, s) => fn(s)),
   listSessions: (projectId) => ipcRenderer.invoke('list-sessions', projectId),
   saveDesk: (projectId, desk) => ipcRenderer.invoke('save-desk', projectId, desk),
   updateProject: (id, patch) => ipcRenderer.invoke('update-project', id, patch),

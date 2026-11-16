@@ -8,7 +8,7 @@ const { CATALOG, AI_ID, RESERVED, customAi } = require('./webviews');
 const CODE_TYPES = ['claude-code', 'claude-code-term'];
 
 function registerIpc(ctx) {
-  const { getWin, store, projects, agents, webviews, aiById, t, applyTheme, projectRoot } = ctx;
+  const { getWin, store, projects, agents, webviews, aiById, t, applyTheme, projectRoot, updater } = ctx;
   const data = () => store.data;
   const isWsType = (type) => CODE_TYPES.includes(type) || !!aiById(type);
 
@@ -37,8 +37,12 @@ function registerIpc(ctx) {
     catalog: Object.entries(CATALOG).map(([id, c]) => ({ id, label: c.label, icon: c.icon, color: c.color, url: c.url })),
     lastProject: data().lastProject || null, settings: data().settings,
     lang: ctx.lang, strings: ctx.strings, migrated: ctx.migrated, recovered: store.recovered,
+    version: ctx.version, update: updater.state,
   }));
   handle('relaunch', () => ctx.relaunch());
+  // Updates (nur in der installierten App aktiv)
+  handle('update-check', () => updater.check(true));
+  handle('update-install', () => updater.install());
 
   // ---------- Projekte ----------
   const { listSessions } = require('./sessions');

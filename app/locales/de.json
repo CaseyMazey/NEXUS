@@ -256,5 +256,19 @@
   "mode.pushOnly": "Fragt nur bei Push",
   "mode.pushOnly.hint": "Claude macht alles ohne Rückfrage – nur vor git push fragt er dich.",
   "chat.jumpDown": "Nach ganz unten springen",
-  "chat.cleared": "Kontext geleert – ab hier neue Unterhaltung"
+  "chat.cleared": "Kontext geleert – ab hier neue Unterhaltung",
+  "update.title": "Updates",
+  "update.version": "NEXUS {version}",
+  "update.auto": "Updates automatisch herunterladen (installiert wird beim Beenden oder per „Jetzt neu starten“)",
+  "update.check": "Nach Updates suchen",
+  "update.restart": "Jetzt neu starten",
+  "update.later": "Später",
+  "update.ready": "NEXUS {version} ist bereit. Neu starten, um es zu installieren – oder es wird beim Beenden installiert.",
+  "update.downloading": "Lade NEXUS {version} … {percent} %",
+  "update.error": "Update-Prüfung fehlgeschlagen (z. B. keine Verbindung). Versuch es später noch einmal.",
+  "update.status.idle": "Noch nicht geprüft",
+  "update.status.checking": "Suche nach Updates …",
+  "update.status.none": "Du hast die neueste Version.",
+  "update.status.ready": "Update bereit",
+  "update.status.off": "Updates gibt es nur in der installierten App."
 }

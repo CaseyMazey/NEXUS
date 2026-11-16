@@ -18,11 +18,12 @@ const VALIDATORS = {
   chatMode: (v) => ['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan'].includes(v),
   chatModel: (v) => typeof v === 'string' && MODEL.test(v),
   notify: (v) => typeof v === 'boolean',
+  autoUpdate: (v) => typeof v === 'boolean',
   language: (v) => ['auto', 'de', 'en'].includes(v),
   projectRoot: (v) => typeof v === 'string' && path.isAbsolute(v) && v.length < 500,
 };
 
-const DEFAULTS = { theme: 'nacht', lightTheme: 'hell', darkTheme: 'nacht', language: 'auto', notify: true, confirmRemove: true };
+const DEFAULTS = { theme: 'nacht', lightTheme: 'hell', darkTheme: 'nacht', language: 'auto', notify: true, confirmRemove: true, autoUpdate: true };
 
 // Ungueltige oder fehlende Werte durch Standardwerte ersetzen, unbekannte Schluessel entfernen
 function normalize(settings) {

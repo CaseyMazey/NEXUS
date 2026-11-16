@@ -26,8 +26,29 @@ async function start() {
   if (notice) showToast(notice);
 }
 
-function showToast(text) {
-  const n = el('div', { class: 'toast' }, el('span', {}, text), el('button', { onclick: () => n.remove() }, '×'));
+function showToast(text, actions = [], sticky = false) {
+  const n = el('div', { class: 'toast' }, el('span', {}, text), ...actions, el('button', { class: 'toast-x', onclick: () => n.remove() }, '×'));
   document.body.append(n);
-  setTimeout(() => n.remove(), 15000);
+  if (!sticky) setTimeout(() => n.remove(), 15000);
+  return n;
 }
+
+// ---------- Updates ----------
+function updateText(u) {
+  if (!u) return '';
+  if (u.status === 'downloading') return t('update.downloading', { version: u.version || '', percent: u.percent || 0 });
+  if (u.status === 'error') return t('update.error');
+  return t(`update.status.${u.status}`);
+}
+let updateToast = null;
+window.nexus.onUpdateState((u) => {
+  state.update = u;
+  if (modalOpen && modalRender) modalRender();
+  // fertig geladen: einmal Bescheid geben; "Spaeter" installiert beim Beenden
+  if (u.status === 'ready' && !updateToast) {
+    updateToast = showToast(t('update.ready', { version: u.version }), [
+      el('button', { class: 'primary', onclick: () => window.nexus.updateInstall() }, t('update.restart')),
+      el('button', { onclick: () => updateToast.remove() }, t('update.later')),
+    ], true);
+  }
+});

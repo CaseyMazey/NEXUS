@@ -51,6 +51,8 @@ test('Englisch, Projekt und Einstellungen', async () => {
     // Sprache umstellen zeigt den Neustart-Hinweis
     await page.selectOption('#modal select.m-select', 'de');
     await page.waitForSelector('#modal .m-note');
+    // aus dem Quellcode gestartet: Updates aus, mit Hinweis
+    assert.match(await page.textContent('#modal'), /Updates are only available in the installed app/);
     // keine deutschen Texte in der englischen Oberflaeche
     const text = await page.textContent('body');
     assert.doesNotMatch(text.replace(/Deutsch/g, ''), /\b(Projekte|Einstellungen|Sitzungen|Anmelden)\b/);
