@@ -4,7 +4,9 @@ const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 
 // default = manuell (fragt), auto = Claude Code entscheidet selbst und fragt nur bei Riskantem, plan = nur planen
-const MODES = new Set(['default', 'acceptEdits', 'auto', 'plan']);
+// bypassPermissions = "Nie fragen": alles ohne Rueckfrage. Dafuer startet Claude Code mit --allow-dangerously-skip-permissions
+// (schaltet nur die Moeglichkeit frei; aktiv wird es erst, wenn der Modus gewaehlt ist).
+const MODES = new Set(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan']);
 
 class ChatSession {
   constructor({ cwd, resumeId, mode, model, env, onEvent }) {
@@ -14,7 +16,7 @@ class ChatSession {
       '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
       '--include-partial-messages',
       '--permission-mode', MODES.has(mode) ? mode : 'default',
-      '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio'];
+      '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio', '--allow-dangerously-skip-permissions'];
     if (resumeId) args.push('--resume', resumeId);
     if (model && /^[a-z0-9.\-]+$/i.test(model)) args.push('--model', model);
     this.proc = spawn(process.env.ComSpec || 'cmd.exe', args, { cwd, env, windowsHide: true });
@@ -115,7 +117,9 @@ class ChatSession {
 
   setMode(mode) {
     if (!MODES.has(mode)) return;
-    this._write({ type: 'control_request', request_id: crypto.randomUUID(), request: { subtype: 'set_permission_mode', mode } });
+    this._request({ subtype: 'set_permission_mode', mode }, (r) => {
+      if (r.subtype !== 'success') this.onEvent({ type: 'nexus-stderr', text: `Fehler: Modus konnte nicht gewechselt werden (${r.error || r.error_code || '?'}). Workspace neu laden (↻) und erneut wählen.` });
+    });
   }
 
   // Modell wechseln; gilt ab der naechsten Nachricht. Antwort: aufgeloester Modellname oder Fehler.

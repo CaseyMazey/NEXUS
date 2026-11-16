@@ -74,13 +74,14 @@
     const MODE_INFO = {
       default: ['Manuell (fragt)', 'Claude fragt vor Änderungen und Befehlen'],
       acceptEdits: ['Änderungen automatisch', 'Dateiänderungen ohne Nachfrage, Befehle mit Nachfrage'],
-      auto: ['Auto', 'Claude entscheidet selbst und fragt nur bei riskanten Schritten'],
+      auto: ['Auto', 'Claude entscheidet selbst, fragt aber bei Schritten nach, die Claude Code für riskant hält (z. B. git push)'],
+      bypassPermissions: ['Nie fragen ⚠', 'Claude macht alles ohne Rückfrage – auch Löschen, Pushen, Installieren. Nur verwenden, wenn du dem Auftrag vertraust.'],
       plan: ['Nur planen', 'Claude liest und schlägt vor, ändert aber nichts'],
     };
     let mode = MODE_INFO[opts.getMode?.()] ? opts.getMode() : 'default';
     const modeSel = el('select', { title: 'Berechtigungen' },
       ...Object.entries(MODE_INFO).map(([m, [label, hint]]) => el('option', { value: m, title: hint, ...(m === mode ? { selected: '' } : {}) }, label)));
-    const modeHint = () => { modeSel.title = 'Berechtigungen: ' + MODE_INFO[mode][1]; modeSel.classList.toggle('auto', mode === 'auto'); };
+    const modeHint = () => { modeSel.title = 'Berechtigungen: ' + MODE_INFO[mode][1]; modeSel.classList.toggle('auto', mode === 'auto'); modeSel.classList.toggle('bypass', mode === 'bypassPermissions'); };
     modeHint();
     modeSel.onchange = () => {
       mode = modeSel.value;

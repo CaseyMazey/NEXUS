@@ -60,7 +60,7 @@ const SETTINGS = {
   // zwischen diesen beiden wechselt der Sonne/Mond-Knopf
   lightTheme: (v) => THEMES[v]?.mode === 'light',
   darkTheme: (v) => THEMES[v]?.mode === 'dark',
-  chatMode: (v) => ['default', 'acceptEdits', 'auto', 'plan'].includes(v),
+  chatMode: (v) => ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan'].includes(v),
   chatModel: (v) => typeof v === 'string' && /^[a-z0-9.\-]{1,60}$/i.test(v),
   notify: (v) => typeof v === 'boolean',
 };
