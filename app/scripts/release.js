@@ -13,8 +13,9 @@ if (!/^\d+\.\d+\.\d+$/.test(version || '') || !notes) {
   console.error('Aufruf: npm run release -- <version> "<was ist neu>"   (z. B. 0.1.2)');
   process.exit(1);
 }
-const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: APP, stdio: 'inherit', shell: process.platform === 'win32', ...opts });
-const out = (cmd, args) => execFileSync(cmd, args, { cwd: APP, encoding: 'utf8', shell: process.platform === 'win32' }).trim();
+// git und gh ohne Shell aufrufen (sonst zerlegt Windows Texte mit Leerzeichen); nur npx braucht die Shell
+const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: APP, stdio: 'inherit', ...opts });
+const out = (cmd, args) => execFileSync(cmd, args, { cwd: APP, encoding: 'utf8' }).trim();
 
 if (out('git', ['status', '--porcelain'])) { console.error('Erst alles committen (git status ist nicht sauber).'); process.exit(1); }
 const pkgFile = path.join(APP, 'package.json');
@@ -25,7 +26,7 @@ if (cmp(version, pkg.version) <= 0) { console.error(`Neue Version muss groesser 
 pkg.version = version;
 fs.writeFileSync(pkgFile, JSON.stringify(pkg, null, 2) + '\n');
 fs.rmSync(path.join(APP, 'dist'), { recursive: true, force: true });
-run('npx', ['electron-builder', '--win', 'nsis', '--publish', 'never']);
+run('npx', ['electron-builder', '--win', 'nsis', '--publish', 'never'], { shell: process.platform === 'win32' });
 
 const setup = `dist/NEXUS-Setup-${version}.exe`;
 for (const f of [setup, `${setup}.blockmap`, 'dist/latest.yml']) if (!fs.existsSync(path.join(APP, f))) { console.error('Fehlt:', f); process.exit(1); }
