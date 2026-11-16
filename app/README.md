@@ -15,6 +15,19 @@ npm run lint
 
 `npm start -- --nexus-data=<ordner>` startet mit einem anderen Datenordner.
 
+## Installer bauen
+
+```bash
+npm run dist       # dist/NEXUS-Setup-<version>.exe
+npm run pack       # nur entpackt: dist/win-unpacked/NEXUS.exe (zum Testen)
+```
+
+- **Installation pro Benutzer**, ohne Admin-Rechte, nach `%LOCALAPPDATA%\Programs\nexus`. Startmenü- und Desktop-Verknüpfung „NEXUS“. Die Verknüpfungen des Prototyps werden dabei ersetzt.
+- **Deinstallieren** über Windows-Einstellungen → Apps. Deine Daten in `%APPDATA%\NEXUS` bleiben erhalten.
+- Der Installer ist **nicht signiert**: Beim ersten Start warnt Windows SmartScreen („Unbekannter Herausgeber“ → „Weitere Informationen“ → „Trotzdem ausführen“).
+- `node-pty` bringt fertige Binärdateien mit; beim Bauen wird nichts kompiliert (`npmRebuild: false`).
+- Oberflächentests gegen die gepackte App: `NEXUS_EXE=dist/win-unpacked/NEXUS.exe npm run test:e2e`.
+
 ## Aufbau
 
 | Ordner | Inhalt |

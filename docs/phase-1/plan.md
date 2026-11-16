@@ -36,6 +36,8 @@ NEXUS ist ein installierbares Windows-Programm: **Setup ausführen → NEXUS im 
 - Codeprüfung mit ESLint.
 
 ### M2 – Installer und Start wie eine App
+
+> **Stand 2026-11-16: Installer gebaut** (Branch `phase-1/installer`): `NEXUS-Setup-0.1.0.exe` (117 MB). Alle Oberflächentests laufen auch gegen die gepackte App, inklusive Terminal (node-pty). Abweichungen: node-pty muss nicht neu kompiliert werden (fertige Binärdateien); eine portable Version entfällt vorerst (`npm run pack` reicht zum Testen). Die Installation auf deinem Rechner steht noch aus.
 - Installer mit **electron-builder** (NSIS): `NEXUS-Setup-0.1.0.exe`.
 - **Installation pro Benutzer** (`%LOCALAPPDATA%\Programs\NEXUS`), braucht keine Admin-Rechte.
 - Startmenü- und Desktop-Verknüpfung, Deinstallation über Windows-Einstellungen; Daten bleiben beim Deinstallieren erhalten.
