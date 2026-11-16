@@ -1,6 +1,6 @@
 # Phase 1 – Vom Prototyp zur richtigen App
 
-Stand: 2026-11-16 · Status: **Vorschlag, noch nicht entschieden**
+Stand: 2026-11-16 · Status: **entschieden, M1 umgesetzt**
 
 ## Ausgangslage
 
@@ -22,6 +22,8 @@ NEXUS ist ein installierbares Windows-Programm: **Setup ausführen → NEXUS im 
 ## Meilensteine
 
 ### M1 – Fundament: Umzug in eine saubere App-Struktur
+
+> **Stand 2026-11-16: umgesetzt** (Branch `phase-1/fundament`). Abweichungen vom Plan: Oberfläche als mehrere klassische Skripte statt Bundler (kommt mit Bedarf); Daten-Umzug kopiert ohne Caches; zusätzlich Deutsch/Englisch, und in 3C: Nachrichten einreihen während eines Auftrags, Vorschläge per Tab, Modus „Nie fragen“. Details in `app/README.md`.
 - Neuer Ordner `app/` im selben Repo; `spike/` bleibt als Archiv stehen.
 - Paketname `nexus`, Version `0.1.0`, App-ID `NEXUS`.
 - Aufteilung in Module:
