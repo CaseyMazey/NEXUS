@@ -112,6 +112,7 @@
     const tools = new Map();
     let live = null;
     let turnHadText = false;
+    let turnStart = 0;
     let attachments = []; // { media_type, data, url }
 
     const nearBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 120;
@@ -145,11 +146,43 @@
     }
     // jedes Ereignis aus Claude Code zaehlt als Lebenszeichen
     function activity(patch) { think.last = Date.now(); if (patch) Object.assign(think, patch); renderThinking(); }
-    function addUser(text, imgs = []) {
+    // ----- Uhrzeit und Dauer -----
+    const pad = (n) => String(n).padStart(2, '0');
+    const clock = (ts) => { const d = new Date(ts); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+    function when(ts) {
+      const d = new Date(ts); const now = new Date();
+      const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+      const diff = Math.round((day(now) - day(d)) / 86400000);
+      if (diff === 0) return clock(ts);
+      if (diff === 1) return `gestern ${clock(ts)}`;
+      return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}. ${clock(ts)}`;
+    }
+    function ago(ts) {
+      const m = Math.floor((Date.now() - ts) / 60000);
+      if (m < 1) return 'gerade eben';
+      if (m < 60) return `vor ${m} Min.`;
+      if (m < 24 * 60) return `vor ${Math.floor(m / 60)} Std.`;
+      return '';
+    }
+    const dur = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); if (s < 60) return `${s} s`; const m = Math.floor(s / 60); return m < 60 ? `${m} Min. ${s % 60} s` : `${Math.floor(m / 60)} Std. ${m % 60} Min.`; };
+    const fullDate = (ts) => new Date(ts).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    // "vor 3 Min." laeuft mit
+    function relEl(ts) { const s = el('span', { class: 'rel' }, ago(ts)); s.dataset.ts = ts; return s; }
+    const relTimer = setInterval(() => { for (const s of root.querySelectorAll('.rel[data-ts]')) s.textContent = ago(+s.dataset.ts); }, 30000);
+    function addUser(text, imgs = [], ts = Date.now()) {
       const bubble = el('div', { class: 'bubble' });
       if (imgs.length) bubble.append(el('div', { class: 'bubble-imgs' }, ...imgs.map((u) => el('img', { src: u }))));
       if (text) bubble.append(el('div', {}, text));
-      append(el('div', { class: 'msg user' }, bubble));
+      const msg = el('div', { class: 'msg user' }, bubble);
+      if (ts) msg.append(el('div', { class: 'stamp', title: 'Gesendet ' + fullDate(ts) }, when(ts)));
+      append(msg);
+    }
+    // Abschlusszeile eines Auftrags: wann fertig, wie lange, wie viele Schritte
+    function addDone({ end, ms, steps, stopped }) {
+      const parts = [el('b', {}, stopped ? '■ Gestoppt' : '✓ Fertig'), ` ${when(end)} · `, relEl(end)];
+      if (ms) parts.push(` · Dauer ${dur(ms)}`);
+      if (steps) parts.push(` · ${steps} Schritt${steps === 1 ? '' : 'e'}`);
+      append(el('div', { class: 'note meta done' + (stopped ? ' stopped' : ''), title: 'Fertig ' + fullDate(end) }, ...parts));
     }
     function addAssistant(text, cls = '') { append(el('div', { class: 'msg assistant ' + cls }, md(text))); }
     function addTool(item) {
@@ -232,6 +265,7 @@
       attachments = []; renderAttachments();
       input.value = ''; input.style.height = '';
       turnHadText = false;
+      turnStart = Date.now();
       setBusy(true);
       window.nexus.chatSend(view.chatId, payload).then((ok) => { if (!ok) { setBusy(false); addNote('Nachricht konnte nicht gesendet werden.', 'warn'); } });
       if (!view.titled && text && !text.startsWith('/')) { view.titled = true; opts.onTitle?.(text.slice(0, 40)); }
@@ -322,8 +356,9 @@
           live = null; setBusy(false);
           // Lokale Slash-Befehle (z. B. /context) liefern ihre Ausgabe nur hier.
           if (!turnHadText && d.result && d.subtype === 'success') addAssistant(String(d.result), 'command-output');
-          if (d.is_error || d.subtype !== 'success') addNote(`Abgebrochen: ${d.subtype}${d.result ? ' – ' + String(d.result).slice(0, 200) : ''}`, 'warn');
-          addNote(`${d.num_turns || 1} Schritt(e) · ${Math.round((d.duration_ms || 0) / 1000)} s`, 'meta');
+          const failed = d.is_error || d.subtype !== 'success';
+          if (failed && !/interrupt/i.test(String(d.subtype) + String(d.result || ''))) addNote(`Abgebrochen: ${d.subtype}${d.result ? ' – ' + String(d.result).slice(0, 200) : ''}`, 'warn');
+          addDone({ end: Date.now(), ms: d.duration_ms || (turnStart ? Date.now() - turnStart : 0), steps: d.num_turns || 1, stopped: failed });
           opts.onTurnDone?.();
           return;
         }
@@ -348,7 +383,7 @@
     view.setBusy = setBusy; // fuer Selbsttests
     view.focus = () => { input.focus(); };
     view.scrollDown = scrollDown;
-    view.destroy = () => { clearInterval(think.timer); if (view.chatId) window.nexus.chatClose(view.chatId); root.remove(); };
+    view.destroy = () => { clearInterval(think.timer); clearInterval(relTimer); if (view.chatId) window.nexus.chatClose(view.chatId); root.remove(); };
 
     // ----- Start -----
     view.ready = (async () => {
@@ -357,11 +392,14 @@
       if (res.history.length) {
         view.titled = true;
         addNote(`Fortgesetzte Sitzung · ${res.history.length} Einträge`);
+        // Nach jedem Auftrag (Nutzer-Nachricht bis zur naechsten) eine Abschlusszeile mit Uhrzeit und Dauer
+        let start = 0; let end = 0; let open = false;
+        const close = () => { if (open && end) addDone({ end, ms: start ? end - start : 0 }); open = false; end = 0; };
         for (const it of res.history) {
-          if (it.kind === 'user') addUser(it.text);
-          else if (it.kind === 'assistant') addAssistant(it.text);
-          else addTool(it);
+          if (it.kind === 'user') { close(); addUser(it.text, [], it.ts); start = it.ts || 0; }
+          else { open = true; end = Math.max(end, it.endTs || 0, it.ts || 0); if (it.kind === 'assistant') addAssistant(it.text); else addTool(it); }
         }
+        close();
         scrollDown();
       } else {
         append(el('div', { class: 'welcome' }, el('div', { class: 'wicon', style: { background: p.color + '33' } }, p.icon),

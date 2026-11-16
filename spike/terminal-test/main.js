@@ -516,6 +516,21 @@ app.whenReady().then(() => {
           l.view.handle({ type: 'raw', data: { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'selftest-1', name: 'WebFetch', input: { url: 'https://example.com' } }] } } }); })()`);
         await new Promise((res) => setTimeout(res, 2600));
       }
+      // --selftest-times: Auftrag mit Uhrzeit und Dauer simulieren (es wird nichts gesendet)
+      const stTimes = process.argv.find((a) => a.startsWith('--selftest-times'));
+      if (stTimes) {
+        const chip = Number(stTimes.split('=')[1] || 1);
+        const r = await win.webContents.executeJavaScript(`(() => { document.querySelector('.lay').click(); document.querySelector('.ws-chip:nth-child(${chip})').click();
+          for (const l of [...live.values()].filter((x) => x.view && x.view.setBusy)) {
+            l.view.setBusy(true);
+            l.view.handle({ type: 'raw', data: { type: 'assistant', message: { content: [{ type: 'text', text: 'Selbsttest: Antwort.' }] } } });
+            l.view.handle({ type: 'raw', data: { type: 'result', subtype: 'success', num_turns: 3, duration_ms: 131000 } });
+            l.view.scrollDown();
+          }
+          return [...document.querySelectorAll('.msg.user .stamp, .note.done')].slice(-4).map((e) => e.textContent); })()`);
+        console.log('[selftest] zeiten', JSON.stringify(r));
+        await new Promise((res) => setTimeout(res, 800));
+      }
       if (process.argv.includes('--selftest-modal')) { await win.webContents.executeJavaScript('openAiManager()'); await new Promise((r) => setTimeout(r, 500)); }
       const img = await win.webContents.capturePage();
       fs.writeFileSync(st.slice('--selftest='.length), img.toPNG());
