@@ -356,7 +356,7 @@ on('web-destroy', (wsId) => webviews.destroy(wsId));
 // ---------- Fenster ----------
 function createWindow() {
   win = new BrowserWindow({
-    width: 1500, height: 920, backgroundColor: bgColor(), title: 'NEXUS',
+    width: 1500, height: 920, backgroundColor: bgColor(), title: 'NEXUS', icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false },
   });
   win.loadFile(path.join(__dirname, 'index.html'));
@@ -368,7 +368,17 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
 }
 
+// Eigener App-Name fuer die Taskleiste (sonst gruppiert Windows NEXUS unter "Electron")
+app.setAppUserModelId('NEXUS');
+app.setName('NEXUS');
+// Nur eine NEXUS-Instanz: zweiter Klick auf die Verknuepfung holt das offene Fenster nach vorn
+const isTestRun = process.argv.some((a) => a.startsWith('--selftest') || a.startsWith('--userdata='));
+const primary = isTestRun || app.requestSingleInstanceLock();
+if (!primary) app.quit();
+app.on('second-instance', () => { if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.focus(); } });
+
 app.whenReady().then(() => {
+  if (!primary) return;
   applyTheme();
   createWindow();
   // --selftest=<png>: baut im Test-Datenordner einen Desk auf (ohne Nachrichten zu senden), Screenshot, Ende.
