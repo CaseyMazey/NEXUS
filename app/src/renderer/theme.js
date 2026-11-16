@@ -83,6 +83,13 @@ function openSettings() {
       checkbox('notify', t('settings.notify')),
       el('h3', {}, t('settings.workspaces')),
       checkbox('confirmRemove', t('settings.confirmRemove')),
+      el('h3', {}, t('update.title')),
+      el('p', { class: 'm-sub' }, t('update.version', { version: state.version || '?' }) + ' · ' + updateText(state.update)),
+      state.update?.status === 'off' ? null : checkbox('autoUpdate', t('update.auto')),
+      el('div', { class: 'm-foot', style: { justifyContent: 'flex-start' } },
+        state.update?.status === 'ready'
+          ? el('button', { class: 'primary', onclick: () => window.nexus.updateInstall() }, t('update.restart'))
+          : el('button', { ...(state.update?.status === 'off' ? { disabled: '' } : {}), onclick: async () => { state.update = await window.nexus.updateCheck(); render(); } }, t('update.check'))),
     ].filter(Boolean));
   };
   openModal(render);

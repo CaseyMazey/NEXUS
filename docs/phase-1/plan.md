@@ -46,6 +46,8 @@ NEXUS ist ein installierbares Windows-Programm: **Setup ausführen → NEXUS im 
 - Das Skript `create-shortcuts.ps1` aus dem Prototyp entfällt danach.
 
 ### M3 – Updates
+
+> **Stand 2026-11-16: umgesetzt** (Branch `phase-1/updates`). Variante A mit dem öffentlichen Repo, ohne Token. NEXUS 0.1.1 ist als erstes GitHub Release veröffentlicht. Getestet: Eine App mit Version 0.1.0 hat 0.1.1 gefunden, geladen und zum Neustart angeboten; beim Beenden wurde 0.1.1 installiert. Veröffentlichen mit `npm run release -- <version> "<notizen>"`. Dazu kam die MIT-Lizenz.
 - Variante A (empfohlen, sobald geklärt): **electron-updater mit GitHub Releases**. NEXUS prüft beim Start, lädt im Hintergrund und fragt „Jetzt neu starten?“.
 - Variante B (einfach, für den Anfang): neue Setup-Datei manuell ausführen; Daten bleiben erhalten.
 - Haken: Das Repo ist privat. Für Variante A braucht es entweder ein öffentliches Release-Repo (nur die fertigen Dateien, kein Quellcode) oder einen eingebauten Lese-Token.

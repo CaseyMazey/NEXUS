@@ -28,6 +28,18 @@ npm run pack       # nur entpackt: dist/win-unpacked/NEXUS.exe (zum Testen)
 - `node-pty` bringt fertige Binärdateien mit; beim Bauen wird nichts kompiliert (`npmRebuild: false`).
 - Oberflächentests gegen die gepackte App: `NEXUS_EXE=dist/win-unpacked/NEXUS.exe npm run test:e2e`.
 
+## Neue Version veröffentlichen (Updates)
+
+```bash
+npm run release -- 0.1.2 "Was ist neu – kurz, für Nutzer"
+```
+
+Das Skript setzt die Version in `package.json`, baut das Setup, committet und pusht und legt das GitHub Release `v0.1.2` mit Setup, `.blockmap` und `latest.yml` an. Es braucht ein sauberes Arbeitsverzeichnis und ein angemeldetes `gh`.
+
+Die installierte App prüft 15 Sekunden nach dem Start und danach alle 6 Stunden auf GitHub Releases (`CaseyMazey/NEXUS`). Ein Update lädt sie im Hintergrund und zeigt dann „Jetzt neu starten“ oder „Später“. Bei „Später“ wird beim Beenden installiert. In ⚙ Einstellungen stehen die Version und „Nach Updates suchen“, und automatische Updates lassen sich dort abschalten.
+
+Zum Testen startet `NEXUS_UPDATE_TEST=1` die gepackte App mit `--nexus-data=<ordner>` samt Update-Prüfung. In diesem Modus wird nur geprüft und geladen, nie installiert.
+
 ## Aufbau
 
 | Ordner | Inhalt |

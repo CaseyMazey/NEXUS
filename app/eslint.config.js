@@ -5,7 +5,7 @@ module.exports = [
   { ignores: ['node_modules/**', 'dist/**'] },
   js.configs.recommended,
   {
-    files: ['src/main/**/*.js', 'src/preload/**/*.js', 'test/**/*.js', 'eslint.config.js'],
+    files: ['src/main/**/*.js', 'src/preload/**/*.js', 'test/**/*.js', 'scripts/**/*.js', 'eslint.config.js'],
     languageOptions: { ecmaVersion: 2024, sourceType: 'commonjs', globals: { ...globals.node } },
     rules: { 'no-unused-vars': ['error', { argsIgnorePattern: '^_|^e$|^w$|^d$|^p$|^err$|^wc$|^cert$|^url$', caughtErrors: 'none' }] },
   },
