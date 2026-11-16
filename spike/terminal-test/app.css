@@ -272,10 +272,49 @@ button.danger:hover { border-color: #ef4444; color: var(--red-text); }
 button.danger-fill { background: #dc2626; border-color: #dc2626; color: #fff; }
 button.danger-fill:hover { background: #b91c1c; }
 
-/* ---------- Helles Theme (Sonne/Mond-Knopf) ---------- */
-:root[data-theme="light"] {
-  --bg: #f5f6f8; --panel: #ffffff; --panel-2: #eef0f4; --line: #d9dce3; --line-strong: #b8bdc8;
-  --text: #1d2027; --muted: #636a78; --code-bg: #eef0f4; --pre-bg: #f3f4f7; --shadow: #0003; --scrim: #0005;
+/* ---------- Themes (Standard oben in :root = "Nacht") ---------- */
+:root[data-theme="hell"], :root[data-theme="creme"], :root[data-theme="sand"] {
+  --shadow: #0003; --scrim: #0005;
   --red-text: #b91c1c; --green-text: #15803d; --yellow-text: #a16207; --warn-text: #b45309;
   color-scheme: light;
 }
+:root[data-theme="hell"] {
+  --bg: #f5f6f8; --panel: #ffffff; --panel-2: #eef0f4; --line: #d9dce3; --line-strong: #b8bdc8;
+  --text: #1d2027; --muted: #636a78; --code-bg: #eef0f4; --pre-bg: #f3f4f7;
+}
+/* Creme: warmes Off-White, weniger grell als Weiß */
+:root[data-theme="creme"] {
+  --bg: #f7f3ea; --panel: #fffcf5; --panel-2: #f1ece0; --line: #e2dac8; --line-strong: #c9bea6;
+  --text: #2b2720; --muted: #756c5c; --code-bg: #f1ece0; --pre-bg: #f9f5ec;
+}
+/* Sand: leicht beige */
+:root[data-theme="sand"] {
+  --bg: #ece4d4; --panel: #f5efe3; --panel-2: #e5dccb; --line: #d3c7b0; --line-strong: #b8a988;
+  --text: #2e2819; --muted: #6e6450; --code-bg: #e5dccb; --pre-bg: #efe8da;
+}
+/* Retro: grüner Phosphor auf Schwarz, Monospace-Schrift */
+:root[data-theme="retro"] {
+  --bg: #050805; --panel: #0a100a; --panel-2: #0f180f; --line: #1c3a1c; --line-strong: #2a5a2a;
+  --text: #33ff66; --muted: #1fa84a; --code-bg: #0c160c; --pre-bg: #020402; --shadow: #000c; --scrim: #000b;
+  --red-text: #ff6b6b; --green-text: #66ff99; --yellow-text: #e6ff66; --warn-text: #ffcc33;
+}
+:root[data-theme="retro"] body { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12.5px; text-shadow: 0 0 4px #33ff6630; }
+:root[data-theme="retro"] :is(textarea, input, select) { font-family: inherit; }
+:root[data-theme="retro"] button.primary { background: #33ff66; color: #021a07; }
+/* Kupfer (Claudes Wahl): warmes Kohlegrau mit Kupfer-Akzenten */
+:root[data-theme="kupfer"] {
+  --bg: #1a1714; --panel: #211d19; --panel-2: #2a251f; --line: #3a332b; --line-strong: #4d443a;
+  --text: #ece4d8; --muted: #a39684; --code-bg: #2a251f; --pre-bg: #12100d;
+  --warn-text: #e8915c; --yellow-text: #f2c66d;
+}
+:root[data-theme="kupfer"] .brand { color: #e8915c; }
+
+/* Theme-Auswahl in den Einstellungen */
+.theme-label { font-size: 12px; color: var(--muted); margin: 12px 0 6px; }
+.theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.theme-card { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; text-align: left; padding: 8px 10px; border-radius: 10px; }
+.theme-card.on { border-color: var(--pc); box-shadow: 0 0 0 1px var(--pc); }
+.theme-sw { grid-row: 1 / 3; display: flex; width: 36px; height: 36px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line-strong); }
+.theme-sw i { flex: 1; }
+.theme-name { font-weight: 600; }
+.theme-hint { font-size: 11px; color: var(--muted); }

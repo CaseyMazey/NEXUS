@@ -56,11 +56,26 @@ data.settings ||= {};
 // Theme der KIs: wird den Seiten als prefers-color-scheme gemeldet (Standard: dunkel, passend zu NEXUS).
 const SETTINGS = {
   confirmRemove: (v) => typeof v === 'boolean',
-  aiTheme: (v) => ['dark', 'light'].includes(v),
+  theme: (v) => Object.hasOwn(THEMES, v),
+  // zwischen diesen beiden wechselt der Sonne/Mond-Knopf
+  lightTheme: (v) => THEMES[v]?.mode === 'light',
+  darkTheme: (v) => THEMES[v]?.mode === 'dark',
 };
-const bgColor = () => (data.settings.aiTheme === 'light' ? '#f5f6f8' : '#111216');
+// Themes: mode bestimmt, was den KI-Seiten als prefers-color-scheme gemeldet wird; bg ist die Fensterfarbe beim Start.
+// Die Farben selbst stehen in app.css (:root[data-theme=…]).
+const THEMES = {
+  hell: { mode: 'light', bg: '#f5f6f8' }, creme: { mode: 'light', bg: '#f7f3ea' }, sand: { mode: 'light', bg: '#ece4d4' },
+  nacht: { mode: 'dark', bg: '#111216' }, retro: { mode: 'dark', bg: '#050805' }, kupfer: { mode: 'dark', bg: '#1a1714' },
+};
+// alte Einstellung (aiTheme hell/dunkel) uebernehmen
+if (!THEMES[data.settings.theme]) data.settings.theme = data.settings.aiTheme === 'light' ? 'hell' : 'nacht';
+delete data.settings.aiTheme;
+if (THEMES[data.settings.lightTheme]?.mode !== 'light') data.settings.lightTheme = 'hell';
+if (THEMES[data.settings.darkTheme]?.mode !== 'dark') data.settings.darkTheme = 'nacht';
+const theme = () => THEMES[data.settings.theme] || THEMES.nacht;
+const bgColor = () => theme().bg;
 function applyTheme() {
-  nativeTheme.themeSource = data.settings.aiTheme === 'light' ? 'light' : 'dark';
+  nativeTheme.themeSource = theme().mode;
   if (win && !win.isDestroyed()) win.setBackgroundColor(bgColor());
 }
 // "Meine KIs": Web-KIs, die in NEXUS aufgenommen sind (Anmeldung je KI gilt fuer alle Desks).
@@ -315,7 +330,7 @@ handle('set-setting', (key, value) => {
   if (SETTINGS[key] && SETTINGS[key](value)) {
     data.settings[key] = value;
     saveData();
-    if (key === 'aiTheme') applyTheme();
+    if (key === 'theme') applyTheme();
   }
   return data.settings;
 });
@@ -390,7 +405,14 @@ app.whenReady().then(() => {
       console.log('[selftest]', JSON.stringify(result));
       await new Promise((r) => setTimeout(r, 7000));
       for (const [id, v] of webviews.views) console.log('[selftest] web', id, v.aiId, JSON.stringify(v.view.getBounds()), 'sichtbar:', v.view.getVisible(), '|', v.view.webContents.getTitle());
-      if (process.argv.includes('--selftest-light')) { await win.webContents.executeJavaScript("document.querySelector('#theme').click(); document.querySelector('.lay:nth-child(2)').click(); document.querySelector('.ws-chip:nth-child(2)').click()"); await new Promise((r) => setTimeout(r, 3000)); }
+      // --selftest-theme=<id>: Theme setzen, 2er-Raster mit Chat links; mit --selftest-themepick zusaetzlich die Auswahl offen
+      const stTheme = process.argv.find((a) => a.startsWith('--selftest-theme='));
+      if (stTheme) {
+        await win.webContents.executeJavaScript(`setTheme(${JSON.stringify(stTheme.slice('--selftest-theme='.length))}).then(() => {
+          document.querySelector('.lay:nth-child(2)').click(); document.querySelector('.ws-chip').click(); })`);
+        await new Promise((r) => setTimeout(r, 3000));
+        if (process.argv.includes('--selftest-themepick')) { await win.webContents.executeJavaScript('openSettings()'); await new Promise((r) => setTimeout(r, 400)); }
+      }
       if (process.argv.includes('--selftest-pop')) { await win.webContents.executeJavaScript("document.querySelector('.ai-row').click()"); await new Promise((r) => setTimeout(r, 500)); }
       if (process.argv.includes('--selftest-close')) { await win.webContents.executeJavaScript("document.querySelector('.ws-chip .x').click()"); await new Promise((r) => setTimeout(r, 500)); }
       // --selftest-projects=<ordner>: Projekt mit vorhandenem Ordner anlegen, umbenennen, entfernen; danach Editor offen
