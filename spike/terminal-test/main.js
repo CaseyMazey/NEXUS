@@ -3,7 +3,7 @@
 // - Claude / ChatGPT / Gemini: eingebettete Webseiten (WebContentsView, nur passiv)
 // - Pro Projekt ein "Desk": Workspaces, Raster und der jeweils fortzusetzende Chat
 
-const { app, BrowserWindow, ipcMain, shell, nativeTheme, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme, dialog, Notification } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -56,11 +56,29 @@ data.settings ||= {};
 // Theme der KIs: wird den Seiten als prefers-color-scheme gemeldet (Standard: dunkel, passend zu NEXUS).
 const SETTINGS = {
   confirmRemove: (v) => typeof v === 'boolean',
-  aiTheme: (v) => ['dark', 'light'].includes(v),
+  theme: (v) => Object.hasOwn(THEMES, v),
+  // zwischen diesen beiden wechselt der Sonne/Mond-Knopf
+  lightTheme: (v) => THEMES[v]?.mode === 'light',
+  darkTheme: (v) => THEMES[v]?.mode === 'dark',
+  chatMode: (v) => ['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan'].includes(v),
+  chatModel: (v) => typeof v === 'string' && /^[a-z0-9.\-]{1,60}$/i.test(v),
+  notify: (v) => typeof v === 'boolean',
 };
-const bgColor = () => (data.settings.aiTheme === 'light' ? '#f5f6f8' : '#111216');
+// Themes: mode bestimmt, was den KI-Seiten als prefers-color-scheme gemeldet wird; bg ist die Fensterfarbe beim Start.
+// Die Farben selbst stehen in app.css (:root[data-theme=…]).
+const THEMES = {
+  hell: { mode: 'light', bg: '#f5f6f8' }, creme: { mode: 'light', bg: '#f7f3ea' }, sand: { mode: 'light', bg: '#ece4d4' },
+  nacht: { mode: 'dark', bg: '#111216' }, retro: { mode: 'dark', bg: '#050805' }, kupfer: { mode: 'dark', bg: '#1a1714' },
+};
+// alte Einstellung (aiTheme hell/dunkel) uebernehmen
+if (!THEMES[data.settings.theme]) data.settings.theme = data.settings.aiTheme === 'light' ? 'hell' : 'nacht';
+delete data.settings.aiTheme;
+if (THEMES[data.settings.lightTheme]?.mode !== 'light') data.settings.lightTheme = 'hell';
+if (THEMES[data.settings.darkTheme]?.mode !== 'dark') data.settings.darkTheme = 'nacht';
+const theme = () => THEMES[data.settings.theme] || THEMES.nacht;
+const bgColor = () => theme().bg;
 function applyTheme() {
-  nativeTheme.themeSource = data.settings.aiTheme === 'light' ? 'light' : 'dark';
+  nativeTheme.themeSource = theme().mode;
   if (win && !win.isDestroyed()) win.setBackgroundColor(bgColor());
 }
 // "Meine KIs": Web-KIs, die in NEXUS aufgenommen sind (Anmeldung je KI gilt fuer alle Desks).
@@ -175,15 +193,17 @@ function openTerminal({ projectId, resumeId, cols, rows }) {
 // ---------- Claude-Code-Chat ----------
 const chats = new Map();
 let nextChatId = 1;
-function openChat({ projectId, resumeId, mode }) {
+function openChat({ projectId, resumeId, mode, model }) {
   const project = projectById(projectId);
   if (!project) throw new Error('Unbekanntes Projekt');
   if (resumeId && !UUID.test(resumeId)) throw new Error('Ungueltige Sitzungs-ID');
   const chatId = nextChatId++;
   const session = new ChatSession({
     cwd: project.path, resumeId, mode, env: cleanEnv(),
+    model: model && model !== 'default' ? model : null,
     onEvent: (ev) => {
       if (ev.type === 'nexus-exit') chats.delete(chatId);
+      if (ev.type === 'permission') notifyDecision(project, chatId, ev);
       if (ev.type === 'raw' && ev.data.type === 'system' && ev.data.subtype === 'init' && Array.isArray(ev.data.slash_commands)) {
         data.slashCommands = ev.data.slash_commands.filter((s) => typeof s === 'string').slice(0, 400);
         saveData();
@@ -193,6 +213,32 @@ function openChat({ projectId, resumeId, mode }) {
   });
   chats.set(chatId, session);
   return { chatId, history: resumeId ? readHistory(project.path, resumeId) : [] };
+}
+// Windows-Benachrichtigung (unten rechts), wenn Claude eine Entscheidung braucht und NEXUS nicht im Vordergrund ist.
+// Klick holt NEXUS nach vorn und zeigt den betroffenen Chat.
+const notes = new Set(); // Referenzen halten, sonst raeumt der GC die Benachrichtigung samt Klick-Handler weg
+function showWindow() {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+}
+function notifyDecision(project, chatId, ev) {
+  if (!win || win.isDestroyed() || win.isFocused() || data.settings.notify === false) return;
+  win.flashFrame(true); // Taskleisten-Knopf blinkt, bis NEXUS wieder aktiv ist
+  if (!Notification.isSupported()) return;
+  const what = ev.displayName || ev.tool || 'ein Werkzeug';
+  const n = new Notification({
+    title: `NEXUS braucht deine Entscheidung`,
+    body: `${project.name}: Claude möchte ${what} verwenden.`,
+    icon: path.join(__dirname, 'build', 'icon.png'),
+  });
+  notes.add(n);
+  const done = () => notes.delete(n);
+  n.on('click', () => { showWindow(); toUi('focus-chat', chatId); done(); });
+  n.on('close', done);
+  n.on('show', () => console.log('[notify] angezeigt'));
+  n.on('failed', (e, err) => { console.log('[notify] fehlgeschlagen', err); done(); });
+  n.show();
 }
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 function buildContent(payload) {
@@ -269,6 +315,7 @@ handle('chat-permission', (chatId, requestId, decision) => {
 });
 handle('chat-interrupt', (chatId) => chats.get(chatId)?.interrupt());
 handle('chat-mode', (chatId, mode) => chats.get(chatId)?.setMode(mode));
+handle('chat-model', (chatId, model) => chats.get(chatId)?.setModel(model));
 handle('chat-close', (chatId) => { chats.get(chatId)?.close(); chats.delete(chatId); });
 handle('update-project', (id, patch) => {
   const p = projectById(id);
@@ -315,7 +362,7 @@ handle('set-setting', (key, value) => {
   if (SETTINGS[key] && SETTINGS[key](value)) {
     data.settings[key] = value;
     saveData();
-    if (key === 'aiTheme') applyTheme();
+    if (key === 'theme') applyTheme();
   }
   return data.settings;
 });
@@ -356,11 +403,23 @@ on('web-destroy', (wsId) => webviews.destroy(wsId));
 // ---------- Fenster ----------
 function createWindow() {
   win = new BrowserWindow({
-    width: 1500, height: 920, backgroundColor: bgColor(), title: 'NEXUS',
+    width: 1500, height: 920, backgroundColor: bgColor(), title: 'NEXUS', icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false },
+  });
+  // Keine Menueleiste (File/Edit/View/Window). Kopieren/Einfuegen funktioniert unter Windows auch ohne Menue;
+  // Entwicklerwerkzeuge und Zoom bekommen hier eigene Tastenkuerzel.
+  win.removeMenu();
+  win.webContents.on('before-input-event', (e, i) => {
+    if (i.type !== 'keyDown') return;
+    const wc = win.webContents;
+    if (i.key === 'F12' || (i.control && i.shift && i.key.toLowerCase() === 'i')) { wc.toggleDevTools(); e.preventDefault(); }
+    else if (i.control && (i.key === '+' || i.key === '=')) { wc.setZoomLevel(Math.min(wc.getZoomLevel() + 0.5, 4)); e.preventDefault(); }
+    else if (i.control && i.key === '-') { wc.setZoomLevel(Math.max(wc.getZoomLevel() - 0.5, -3)); e.preventDefault(); }
+    else if (i.control && i.key === '0') { wc.setZoomLevel(0); e.preventDefault(); }
   });
   win.loadFile(path.join(__dirname, 'index.html'));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.on('focus', () => win.flashFrame(false));
   win.webContents.on('console-message', (e) => {
     if (e.level === 'warning' || e.level === 'error') console.log(`[ui:${e.level}] ${e.message} (${e.sourceId}:${e.lineNumber})`);
   });
@@ -368,7 +427,30 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
 }
 
+// Eigener App-Name fuer die Taskleiste (sonst gruppiert Windows NEXUS unter "Electron")
+app.setAppUserModelId('NEXUS');
+app.setName('NEXUS');
+// Nur eine NEXUS-Instanz: zweiter Klick auf die Verknuepfung holt das offene Fenster nach vorn
+const isTestRun = process.argv.some((a) => a.startsWith('--selftest') || a.startsWith('--userdata='));
+const primary = isTestRun || app.requestSingleInstanceLock();
+if (!primary) app.quit();
+app.on('second-instance', () => { if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.focus(); } });
+
+// Windows zeigt Benachrichtigungen nicht installierter Apps nur, wenn eine Startmenue-Verknuepfung dieselbe App-ID traegt.
+// Die von create-shortcuts.ps1 angelegten Verknuepfungen bekommen sie hier nachgetragen.
+function tagShortcuts() {
+  if (process.platform !== 'win32' || (isTestRun && !process.argv.includes('--selftest-notify'))) return;
+  const links = [path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'NEXUS.lnk'), path.join(app.getPath('desktop'), 'NEXUS.lnk')];
+  for (const lnk of links) {
+    try {
+      if (fs.existsSync(lnk) && shell.readShortcutLink(lnk).appUserModelId !== 'NEXUS') shell.writeShortcutLink(lnk, 'update', { appUserModelId: 'NEXUS' });
+    } catch (e) { console.log('[shortcut]', lnk, e.message); }
+  }
+}
+
 app.whenReady().then(() => {
+  if (!primary) return;
+  tagShortcuts();
   applyTheme();
   createWindow();
   // --selftest=<png>: baut im Test-Datenordner einen Desk auf (ohne Nachrichten zu senden), Screenshot, Ende.
@@ -380,7 +462,14 @@ app.whenReady().then(() => {
       console.log('[selftest]', JSON.stringify(result));
       await new Promise((r) => setTimeout(r, 7000));
       for (const [id, v] of webviews.views) console.log('[selftest] web', id, v.aiId, JSON.stringify(v.view.getBounds()), 'sichtbar:', v.view.getVisible(), '|', v.view.webContents.getTitle());
-      if (process.argv.includes('--selftest-light')) { await win.webContents.executeJavaScript("document.querySelector('#theme').click(); document.querySelector('.lay:nth-child(2)').click(); document.querySelector('.ws-chip:nth-child(2)').click()"); await new Promise((r) => setTimeout(r, 3000)); }
+      // --selftest-theme=<id>: Theme setzen, 2er-Raster mit Chat links; mit --selftest-themepick zusaetzlich die Auswahl offen
+      const stTheme = process.argv.find((a) => a.startsWith('--selftest-theme='));
+      if (stTheme) {
+        await win.webContents.executeJavaScript(`setTheme(${JSON.stringify(stTheme.slice('--selftest-theme='.length))}).then(() => {
+          document.querySelector('.lay:nth-child(2)').click(); document.querySelector('.ws-chip').click(); })`);
+        await new Promise((r) => setTimeout(r, 3000));
+        if (process.argv.includes('--selftest-themepick')) { await win.webContents.executeJavaScript('openSettings()'); await new Promise((r) => setTimeout(r, 400)); }
+      }
       if (process.argv.includes('--selftest-pop')) { await win.webContents.executeJavaScript("document.querySelector('.ai-row').click()"); await new Promise((r) => setTimeout(r, 500)); }
       if (process.argv.includes('--selftest-close')) { await win.webContents.executeJavaScript("document.querySelector('.ws-chip .x').click()"); await new Promise((r) => setTimeout(r, 500)); }
       // --selftest-projects=<ordner>: Projekt mit vorhandenem Ordner anlegen, umbenennen, entfernen; danach Editor offen
@@ -403,6 +492,43 @@ app.whenReady().then(() => {
           return out;
         })()`);
         console.log('[selftest] projects', JSON.stringify(r), 'ordner noch da:', fs.existsSync(dir));
+        await new Promise((res) => setTimeout(res, 800));
+      }
+      // --selftest-notify: Auto-Modus im ersten Chat waehlen, dann Benachrichtigung wie bei einer Rueckfrage (Fenster gilt als im Hintergrund)
+      if (process.argv.includes('--selftest-notify')) {
+        const r = await win.webContents.executeJavaScript(`(() => { document.querySelector('.lay').click(); document.querySelector('.ws-chip').click();
+          const sel = document.querySelector('.composer select'); sel.value = 'auto'; sel.dispatchEvent(new Event('change'));
+          const l = [...live.values()].find((x) => x.view); return { chatId: l.view.chatId, mode: sel.selectedOptions[0].textContent }; })()`);
+        await new Promise((res) => setTimeout(res, 2500));
+        const models = await win.webContents.executeJavaScript(`[...document.querySelector('.composer .model-sel').options].map((o) => o.textContent)`);
+        console.log('[selftest] modelle', JSON.stringify(models));
+        console.log('[selftest] modus', r.mode, 'gespeichert:', data.settings.chatMode, 'shortcut-id:', (() => { try { return shell.readShortcutLink(path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'NEXUS.lnk')).appUserModelId; } catch (e) { return e.message; } })());
+        win.blur();
+        const realFocus = win.isFocused; win.isFocused = () => false;
+        notifyDecision({ name: 'Selbsttest' }, r.chatId, { displayName: 'Bash' });
+        win.isFocused = realFocus;
+        await new Promise((res) => setTimeout(res, 2500));
+      }
+      // --selftest-thinking: Denk-Anzeige im ersten Chat zeigen (simuliert, es wird nichts gesendet)
+      if (process.argv.includes('--selftest-thinking')) {
+        await win.webContents.executeJavaScript(`(() => { document.querySelector('.lay').click(); document.querySelector('.ws-chip').click();
+          const l = [...live.values()].find((x) => x.view && x.view.setBusy); l.view.setBusy(true);
+          l.view.handle({ type: 'raw', data: { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'selftest-1', name: 'WebFetch', input: { url: 'https://example.com' } }] } } }); })()`);
+        await new Promise((res) => setTimeout(res, 2600));
+      }
+      // --selftest-times: Auftrag mit Uhrzeit und Dauer simulieren (es wird nichts gesendet)
+      const stTimes = process.argv.find((a) => a.startsWith('--selftest-times'));
+      if (stTimes) {
+        const chip = Number(stTimes.split('=')[1] || 1);
+        const r = await win.webContents.executeJavaScript(`(() => { document.querySelector('.lay').click(); document.querySelector('.ws-chip:nth-child(${chip})').click();
+          for (const l of [...live.values()].filter((x) => x.view && x.view.setBusy)) {
+            l.view.setBusy(true);
+            l.view.handle({ type: 'raw', data: { type: 'assistant', message: { content: [{ type: 'text', text: 'Selbsttest: Antwort.' }] } } });
+            l.view.handle({ type: 'raw', data: { type: 'result', subtype: 'success', num_turns: 3, duration_ms: 131000 } });
+            l.view.scrollDown();
+          }
+          return [...document.querySelectorAll('.msg.user .stamp, .note.done')].slice(-4).map((e) => e.textContent); })()`);
+        console.log('[selftest] zeiten', JSON.stringify(r));
         await new Promise((res) => setTimeout(res, 800));
       }
       if (process.argv.includes('--selftest-modal')) { await win.webContents.executeJavaScript('openAiManager()'); await new Promise((r) => setTimeout(r, 500)); }

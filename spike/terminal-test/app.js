@@ -326,6 +326,11 @@ function ensureLive(ws, pid) {
     l.view = NexusChat.create(body, {
       project: p, sessionId: ws.sessionId,
       getSlashCommands: () => state.slashCommands,
+      // zuletzt gewaehlter Modus gilt auch fuer neue Chats
+      getMode: () => state.settings.chatMode,
+      onMode: async (m) => { state.settings = await window.nexus.setSetting('chatMode', m); },
+      getModel: () => state.settings.chatModel,
+      onModel: async (m) => { state.settings = await window.nexus.setSetting('chatModel', m); },
       onSession: (id) => { ws.sessionId = id; saveDeskFor(pid); refreshSessionsIf(pid); },
       onTitle: (t) => { ws.title = t; saveDeskFor(pid); renderChrome(); },
       onBusy: (b) => { l.busy = b; renderChrome(); },
@@ -516,6 +521,15 @@ window.nexus.onChatEvent((chatId, ev) => {
   if (!early.has(chatId)) early.set(chatId, []);
   early.get(chatId).push(ev);
 });
+// Klick auf die Windows-Benachrichtigung: Projekt und Chat zeigen, der auf eine Entscheidung wartet
+window.nexus.onFocusChat(async (chatId) => {
+  const entry = [...live].find(([, l]) => l.view && l.view.chatId === chatId);
+  if (!entry) return;
+  const [wsId, l] = entry;
+  if (state.project !== l.projectId) await selectProject(l.projectId);
+  placeInFocus(wsId);
+  l.view.scrollDown();
+});
 setInterval(() => {
   for (const [chatId, list] of early) {
     for (const l of live.values()) if (l.view && l.view.chatId === chatId) { early.delete(chatId); list.forEach((ev) => l.view.handle(ev)); }
@@ -534,29 +548,78 @@ $('#add-ws').onclick = (e) => {
 };
 $('#open-folder').onclick = () => { if (state.project) window.nexus.openFolder(state.project); };
 
-// ---------- Theme hell/dunkel ----------
-// NEXUS-Oberflaeche, Claude-Code-Chat und Terminals ueber CSS-Variablen bzw. xterm-Theme.
-// Web-KIs: Electron meldet den Seiten das Farbschema (prefers-color-scheme). Kein Eingriff in die Seiten:
+// ---------- Themes ----------
+// NEXUS-Oberflaeche, Claude-Code-Chat und Terminals ueber CSS-Variablen (app.css) bzw. xterm-Theme.
+// Web-KIs: Electron meldet den Seiten nur hell/dunkel (prefers-color-scheme). Kein Eingriff in die Seiten:
 // Claude/ChatGPT/Gemini folgen, solange ihr Theme dort auf "System" steht.
-const isLight = () => state.settings?.aiTheme === 'light';
+const THEMES = [
+  { id: 'hell', name: 'Hell', mode: 'light', hint: 'klares Weiß', sw: ['#ffffff', '#eef0f4', '#1d2027'] },
+  { id: 'creme', name: 'Creme', mode: 'light', hint: 'warm, nicht so grell', sw: ['#fffcf5', '#f1ece0', '#2b2720'] },
+  { id: 'sand', name: 'Sand', mode: 'light', hint: 'leicht beige', sw: ['#f5efe3', '#e5dccb', '#2e2819'] },
+  { id: 'nacht', name: 'Nacht', mode: 'dark', hint: 'das bisherige Dunkel', sw: ['#17181d', '#1d1f26', '#e7e8ec'] },
+  { id: 'retro', name: 'Retro', mode: 'dark', hint: 'Grün auf Schwarz', sw: ['#0a100a', '#0f180f', '#33ff66'] },
+  { id: 'kupfer', name: 'Kupfer', mode: 'dark', hint: 'Claudes Wahl: Kohle und Kupfer', sw: ['#211d19', '#2a251f', '#e8915c'] },
+];
+const curTheme = () => THEMES.find((t) => t.id === state.settings?.theme) || THEMES[3];
+const isLight = () => curTheme().mode === 'light';
+const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function termTheme(p) {
+  const base = { background: cssVar('--bg'), foreground: cssVar('--text'), cursor: p.color, selectionBackground: p.color + (isLight() ? '44' : '55') };
+  if (curTheme().id === 'retro') return { ...base, cursor: cssVar('--text'), selectionBackground: '#33ff6633' };
   return isLight()
-    ? { background: '#ffffff', foreground: '#1d2027', cursor: p.color, cursorAccent: '#ffffff', selectionBackground: p.color + '44',
-      black: '#1d2027', white: '#8b8f9c', brightWhite: '#636a78', yellow: '#a16207', brightYellow: '#b45309' }
-    : { background: '#111216', foreground: '#e7e8ec', cursor: p.color, selectionBackground: p.color + '55' };
+    ? { ...base, cursorAccent: base.background, black: cssVar('--text'), white: '#8b8f9c', brightWhite: cssVar('--muted'), yellow: '#a16207', brightYellow: '#b45309' }
+    : base;
 }
 function renderThemeBtn() {
-  const dark = !isLight();
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const t = curTheme();
+  document.documentElement.dataset.theme = t.id;
   for (const l of live.values()) if (l.term && l.termProject) l.term.options.theme = termTheme(l.termProject);
   const b = $('#theme');
-  b.textContent = dark ? '🌙' : '☀️';
-  b.title = dark ? 'Dunkles Theme (NEXUS und KIs) – Klick für hell' : 'Helles Theme (NEXUS und KIs) – Klick für dunkel';
+  b.textContent = t.mode === 'light' ? '☀️' : '🌙';
+  b.title = `Theme: ${t.name} – Klick zum Wechseln`;
 }
-$('#theme').onclick = async () => {
-  state.settings = await window.nexus.setSetting('aiTheme', state.settings.aiTheme === 'light' ? 'dark' : 'light');
+async function setTheme(id) {
+  state.settings = await window.nexus.setSetting('theme', id);
   renderThemeBtn();
-};
+}
+// Sonne/Mond: wechselt zwischen dem gewaehlten hellen und dunklen Theme
+$('#theme').onclick = () => setTheme(isLight() ? state.settings.darkTheme || 'nacht' : state.settings.lightTheme || 'hell');
+
+// ---------- Einstellungen ----------
+function openSettings() {
+  const render = () => {
+    const pick = (mode) => {
+      const key = mode === 'light' ? 'lightTheme' : 'darkTheme';
+      return el('div', { class: 'theme-grid' }, ...THEMES.filter((t) => t.mode === mode).map((t) => el('button', {
+        class: 'theme-card' + (state.settings[key] === t.id ? ' on' : ''), title: t.hint,
+        onclick: async () => {
+          state.settings = await window.nexus.setSetting(key, t.id);
+          // gleich anzeigen, wenn gerade diese Seite (hell/dunkel) aktiv ist
+          if (curTheme().mode === mode) await setTheme(t.id);
+          render();
+        } },
+        el('span', { class: 'theme-sw' }, ...t.sw.map((c) => el('i', { style: { background: c } }))),
+        el('span', { class: 'theme-name' }, t.name), el('span', { class: 'theme-hint' }, t.hint))));
+    };
+    document.querySelector('#modal .modal-box').replaceChildren(
+      el('div', { class: 'm-head' }, el('h2', {}, 'Einstellungen'), el('button', { onclick: closeModal }, 'Fertig')),
+      el('h3', {}, 'Theme'),
+      el('p', { class: 'm-sub' }, 'Der Sonne/Mond-Knopf oben rechts wechselt zwischen diesen beiden Themes.'),
+      el('div', { class: 'theme-label' }, '☀️ Helles Theme'), pick('light'),
+      el('div', { class: 'theme-label' }, '🌙 Dunkles Theme'), pick('dark'),
+      el('p', { class: 'm-sub' }, 'KIs im Web (Claude, ChatGPT …) werden hell oder dunkel, wenn ihr Theme dort auf „System“ steht. Die genauen Farben bestimmt der Anbieter.'),
+      el('h3', {}, 'Benachrichtigungen'),
+      el('label', { class: 'm-check' }, el('input', { type: 'checkbox', ...(state.settings.notify !== false ? { checked: '' } : {}),
+        onchange: async (e) => { state.settings = await window.nexus.setSetting('notify', e.target.checked); } }),
+      'Windows-Benachrichtigung, wenn Claude eine Entscheidung braucht und NEXUS im Hintergrund ist'),
+      el('h3', {}, 'Workspaces'),
+      el('label', { class: 'm-check' }, el('input', { type: 'checkbox', ...(state.settings.confirmRemove !== false ? { checked: '' } : {}),
+        onchange: async (e) => { state.settings = await window.nexus.setSetting('confirmRemove', e.target.checked); } }),
+      'Vor dem Schließen eines Workspaces nachfragen'));
+  };
+  openModal(render);
+}
+$('#settings').onclick = () => openSettings();
 
 // ---------- Meine KIs ----------
 const STATUS = {

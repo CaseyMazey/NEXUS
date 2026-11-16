@@ -86,6 +86,8 @@ function readHistory(projectPath, sessionId, limit = 300) {
     try { d = JSON.parse(line); } catch { continue; }
     if (d.isMeta || d.isSidechain) continue;
     const content = d.message && d.message.content;
+    const ts = Date.parse(d.timestamp) || undefined;
+    const before = items.length;
     if (d.type === 'user') {
       if (typeof content === 'string') {
         if (content.trim() && !content.startsWith('<')) items.push({ kind: 'user', text: content });
@@ -108,6 +110,11 @@ function readHistory(projectPath, sessionId, limit = 300) {
           items.push({ kind: 'tool', id: c.id, name: c.name, input: c.input });
         }
       }
+    }
+    // Zeitstempel fuer Uhrzeit/Dauer im Chat; Werkzeug-Ergebnisse verlaengern das Ende des Werkzeugs
+    for (let i = before; i < items.length; i++) items[i].ts = ts;
+    if (ts && d.type === 'user' && Array.isArray(content)) {
+      for (const c of content) if (c.type === 'tool_result' && toolIndex.has(c.tool_use_id)) items[toolIndex.get(c.tool_use_id)].endTs = ts;
     }
   }
   return items.slice(-limit).map((it) => (it.result && it.result.length > 4000 ? { ...it, result: it.result.slice(0, 4000) + ' …' } : it));

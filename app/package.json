@@ -1,0 +1,29 @@
+{
+  "name": "nexus",
+  "productName": "NEXUS",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NEXUS – lokaler Rahmen für deine KIs: Projekte, Desks, Claude Code und Web-KIs an einem Ort",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test \"test/unit/*.test.js\"",
+    "test:e2e": "node --test --test-concurrency=1 \"test/e2e/*.test.js\"",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "dompurify": "^3.4.17",
+    "marked": "^18.2.0",
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "electron": "45.3.1",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
+    "playwright-core": "^1.65.1"
+  }
+}
