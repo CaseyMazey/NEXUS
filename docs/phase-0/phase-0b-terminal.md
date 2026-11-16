@@ -97,3 +97,27 @@ Gespeichert in `nexus-data.json` unter `desks[<projekt>]`, automatisch bei jeder
 | Gemini-Login eingebettet | ⏳ ungetestet |
 
 **Hinweis:** Die Web-Workspaces nutzen neue Partitionen im NEXUS-Datenordner → bei Claude/ChatGPT/Gemini einmal neu anmelden; danach bleibt die Anmeldung für alle Desks.
+
+## Update 2026-11-16: „Meine KIs“ – einmal anmelden, überall angemeldet
+Wunsch (vom Nutzer): nicht in jedem Workspace neu anmelden, sondern KIs einmal in NEXUS aufnehmen und anmelden.
+
+**Ursache des Problems:** Die Anmeldung war schon pro Anbieter geteilt (eine Partition je KI). Aber der Prototyp hat auch Login-Seiten als „Chat-Adresse“ gespeichert (z. B. `auth.openai.com/oauth/authorize`), und neue Workspaces sind dort wieder gelandet. Schon offene Workspaces haben eine Anmeldung in einem anderen Workspace nicht bemerkt.
+
+**Umsetzung:**
+- Seitenleiste **„Meine KIs“** mit Status-Punkt (grün angemeldet, gelb eingerichtet, rot nicht angemeldet) und Knopf **„＋ KI in NEXUS aufnehmen“**.
+- Dialog: Katalog (Claude, ChatGPT, Gemini, Perplexity, Le Chat, Copilot, DeepSeek) zum Ankreuzen, **eigene KI** über Name + https-Adresse. „Aufnehmen & anmelden“ öffnet ein eigenes Anmeldefenster (gleiche Partition wie die Workspaces).
+- ＋-Menü und leere Plätze zeigen nur noch aufgenommene KIs.
+- Anmeldestatus: NEXUS prüft im Hauptprozess, ob das Sitzungs-Cookie des Anbieters **existiert** (nie den Wert). Bei KIs ohne bekanntes Cookie (Le Chat, Copilot, DeepSeek, eigene) heißt der Status „eingerichtet“.
+- Nach einer Anmeldung werden offene Workspaces dieser KI automatisch neu geladen.
+- Login-/Auth-Adressen werden nie mehr als Chat-Adresse gespeichert. Gespeicherte Login-Adressen werden beim Öffnen ignoriert.
+- Abmelden = Cookies und Speicher dieser KI in NEXUS löschen. Entfernen = abmelden und die Workspaces dieser KI aus allen Desks nehmen.
+- Daten: `nexus-data.json` → `ais` (Katalog-KIs nur als ID, eigene mit Name/Adresse/Domain). Beim ersten Start werden die KIs übernommen, die schon in Desks stecken.
+
+**Grenzen:** Bei eigenen KIs ist nur die Domain der Adresse (ohne Subdomain) plus übliche Anmelde-Hosts erlaubt. Seiten mit Login über andere Domains brauchen später eine Host-Liste je KI. Die Cookie-Namen sind beobachtet, nicht dokumentiert.
+
+| Prüfpunkt | Ergebnis |
+|---|---|
+| Übernahme vorhandener KIs aus den Desks | ✅ (ChatGPT, Claude) |
+| Alter ChatGPT-Workspace mit Login-Adresse öffnet chatgpt.com | ✅ (Selbsttest) |
+| Dialog und Seitenleiste ohne Konsolenfehler | ✅ (Selbsttest mit Screenshot) |
+| Anmelden → Status grün → zweiter Workspace ohne erneute Anmeldung | ⏳ manueller Test |

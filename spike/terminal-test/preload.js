@@ -30,4 +30,12 @@ contextBridge.exposeInMainWorld('nexus', {
   webNav: (wsId, action) => ipcRenderer.send('web-nav', wsId, action),
   webDestroy: (wsId) => ipcRenderer.send('web-destroy', wsId),
   onWebState: (fn) => ipcRenderer.on('web-state', (e, id, s) => fn(id, s)),
+  setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
+  // Meine KIs
+  aiStatus: () => ipcRenderer.invoke('ai-status'),
+  aiAdd: (ids, custom) => ipcRenderer.invoke('ai-add', ids, custom),
+  aiLogin: (id) => ipcRenderer.invoke('ai-login', id),
+  aiLogout: (id) => ipcRenderer.invoke('ai-logout', id),
+  aiRemove: (id) => ipcRenderer.invoke('ai-remove', id),
+  onAiStatus: (fn) => ipcRenderer.on('ai-status', (e, id, s) => fn(id, s)),
 });

@@ -12,6 +12,11 @@
     <div class="brand">NEXUS</div>
     <div class="side-label">Projekte</div>
     <div id="project-list"></div>
+    <div class="side-ais">
+      <div class="side-label">Meine KIs</div>
+      <div id="ai-list"></div>
+      <button id="ai-add" class="ai-add">＋ KI in NEXUS aufnehmen</button>
+    </div>
     <div class="side-sessions">
       <div class="side-label">Claude-Code-Sitzungen</div>
       <div class="side-tools"><input id="search" type="search" placeholder="Suchen…"></div>
@@ -28,11 +33,13 @@
       <div id="saved" class="saved"></div>
       <div id="layouts" title="Raster"></div>
       <button id="open-folder" title="Projektordner öffnen">📁</button>
+      <button id="theme" title="Theme der KIs">🌙</button>
     </header>
     <div id="grid"></div>
   </main>
   <div id="parking" hidden></div>
   <div id="popover" hidden></div>
+  <div id="modal" hidden><div class="modal-box"></div></div>
   <script src="node_modules/@xterm/xterm/lib/xterm.js"></script>
   <script src="node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
   <script src="node_modules/marked/lib/marked.umd.js"></script>

@@ -3,14 +3,14 @@
 // - Claude / ChatGPT / Gemini: eingebettete Webseiten (WebContentsView, nur passiv)
 // - Pro Projekt ein "Desk": Workspaces, Raster und der jeweils fortzusetzende Chat
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const pty = require('node-pty');
 const { listSessions, readHistory } = require('./sessions');
 const { ChatSession } = require('./chat');
-const { WebViews, PROVIDERS } = require('./webviews');
+const { WebViews, CATALOG, AI_ID, RESERVED, customAi } = require('./webviews');
 
 // --userdata=<ordner> (fuer Selbsttests, damit echte Daten unberuehrt bleiben)
 const udArg = process.argv.find((a) => a.startsWith('--userdata='));
@@ -20,7 +20,7 @@ const PROJECT_ROOT = path.join(os.homedir(), 'Documents', 'Projekt');
 
 const PALETTE = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#a855f7', '#84cc16'];
 const ICONS = ['🧭', '🏡', '🧠', '🔥', '📚', '🛠️', '🎮', '🌐', '🗂️', '✨'];
-const WS_TYPES = ['claude-code', 'claude-code-term', 'claude', 'chatgpt', 'gemini'];
+const CODE_TYPES = ['claude-code', 'claude-code-term'];
 
 function loadData() {
   try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch { return null; }
@@ -52,6 +52,33 @@ let data = loadData() || seedData();
 data.sessionMeta ||= {};
 data.desks ||= {};
 data.slashCommands ||= [];
+data.settings ||= {};
+// Theme der KIs: wird den Seiten als prefers-color-scheme gemeldet (Standard: dunkel, passend zu NEXUS).
+const SETTINGS = {
+  confirmRemove: (v) => typeof v === 'boolean',
+  aiTheme: (v) => ['dark', 'light'].includes(v),
+};
+const bgColor = () => (data.settings.aiTheme === 'light' ? '#f5f6f8' : '#111216');
+function applyTheme() {
+  nativeTheme.themeSource = data.settings.aiTheme === 'light' ? 'light' : 'dark';
+  if (win && !win.isDestroyed()) win.setBackgroundColor(bgColor());
+}
+// "Meine KIs": Web-KIs, die in NEXUS aufgenommen sind (Anmeldung je KI gilt fuer alle Desks).
+// Erststart nach dem Update: alle KIs uebernehmen, die schon in einem Desk stecken.
+if (!Array.isArray(data.ais)) {
+  const used = new Set();
+  for (const d of Object.values(data.desks)) for (const w of d.workspaces || []) if (CATALOG[w.type]) used.add(w.type);
+  data.ais = [...used].map((id) => ({ id }));
+}
+const aiById = (id) => data.ais.find((a) => a.id === id) || null;
+const isWsType = (t) => CODE_TYPES.includes(t) || !!aiById(t);
+function publicAis() {
+  return data.ais.map((a) => {
+    const c = CATALOG[a.id];
+    return c ? { id: a.id, label: c.label, icon: c.icon, color: c.color, url: c.url, verifiable: !!c.authCookie }
+      : { id: a.id, label: a.label, icon: a.icon, color: a.color, url: a.url, custom: true, verifiable: false };
+  });
+}
 saveData();
 
 let win;
@@ -127,13 +154,13 @@ function buildContent(payload) {
 }
 
 // ---------- Web-Workspaces ----------
-const webviews = new WebViews(() => win, (wsId, state) => toUi('web-state', wsId, state));
+const webviews = new WebViews(() => win, aiById, (wsId, state) => toUi('web-state', wsId, state), (aiId, status) => toUi('ai-status', aiId, status));
 
 // ---------- Desks ----------
 function cleanDesk(desk) {
   if (!desk || typeof desk !== 'object') return null;
   const workspaces = (Array.isArray(desk.workspaces) ? desk.workspaces : []).slice(0, 16)
-    .filter((w) => w && WSID.test(w.id) && WS_TYPES.includes(w.type))
+    .filter((w) => w && WSID.test(w.id) && isWsType(w.type))
     .map((w) => ({
       id: w.id, type: w.type,
       title: typeof w.title === 'string' ? w.title.slice(0, 80) : '',
@@ -158,8 +185,9 @@ function on(channel, fn) {
 
 handle('get-state', () => ({
   projects: data.projects, sessionMeta: data.sessionMeta, desks: data.desks, slashCommands: data.slashCommands,
-  palette: PALETTE, icons: ICONS, providers: Object.fromEntries(Object.entries(PROVIDERS).map(([k, p]) => [k, p.label])),
-  lastProject: data.lastProject || null,
+  palette: PALETTE, icons: ICONS, ais: publicAis(),
+  catalog: Object.entries(CATALOG).map(([id, c]) => ({ id, label: c.label, icon: c.icon, color: c.color, url: c.url })),
+  lastProject: data.lastProject || null, settings: data.settings,
 }));
 handle('list-sessions', (projectId) => { const p = projectById(projectId); return p ? listSessions(p.path) : []; });
 handle('save-desk', (projectId, desk) => {
@@ -203,13 +231,43 @@ handle('update-session-meta', (sessionId, patch) => {
   saveData();
   return m;
 });
+handle('set-setting', (key, value) => {
+  if (SETTINGS[key] && SETTINGS[key](value)) {
+    data.settings[key] = value;
+    saveData();
+    if (key === 'aiTheme') applyTheme();
+  }
+  return data.settings;
+});
+// ---------- Meine KIs ----------
+handle('ai-status', () => webviews.allStatus(data.ais.map((a) => a.id)));
+handle('ai-add', (ids, custom) => {
+  for (const id of Array.isArray(ids) ? ids : []) if (CATALOG[id] && !aiById(id)) data.ais.push({ id });
+  if (custom && typeof custom === 'object') {
+    const ai = customAi(custom.label, custom.url, new Set(data.ais.map((a) => a.id)));
+    if (!AI_ID.test(ai.id) || RESERVED.has(ai.id)) throw new Error('Ungültige ID');
+    data.ais.push(ai);
+  }
+  saveData();
+  return publicAis();
+});
+handle('ai-login', (id) => { if (aiById(id)) webviews.openLogin(id); });
+handle('ai-logout', (id) => (aiById(id) ? webviews.logout(id) : null));
+handle('ai-remove', async (id) => {
+  if (!aiById(id)) return publicAis();
+  await webviews.logout(id);
+  data.ais = data.ais.filter((a) => a.id !== id);
+  for (const [pid, d] of Object.entries(data.desks)) data.desks[pid] = cleanDesk(d);
+  saveData();
+  return publicAis();
+});
 handle('open-folder', (projectId) => { const p = projectById(projectId); if (p) shell.openPath(p.path); });
 
 on('term-input', (termId, d) => terms.get(termId)?.proc.write(d));
 on('term-resize', (termId, cols, rows) => { const t = terms.get(termId); if (t && cols > 0 && rows > 0) t.proc.resize(cols, rows); });
 on('term-kill', (termId) => terms.get(termId)?.proc.kill());
 
-on('web-ensure', (wsId, type, url) => { if (WSID.test(wsId) && PROVIDERS[type]) webviews.ensure(wsId, type, url); });
+on('web-ensure', (wsId, type, url) => { if (WSID.test(wsId) && aiById(type)) webviews.ensure(wsId, type, url); });
 on('web-bounds', (wsId, rect) => webviews.setBounds(wsId, rect));
 on('web-hide-all', () => webviews.hideAll());
 on('web-nav', (wsId, action) => { if (['back', 'reload', 'home', 'external'].includes(action)) webviews.nav(wsId, action); });
@@ -218,7 +276,7 @@ on('web-destroy', (wsId) => webviews.destroy(wsId));
 // ---------- Fenster ----------
 function createWindow() {
   win = new BrowserWindow({
-    width: 1500, height: 920, backgroundColor: '#111216', title: 'NEXUS',
+    width: 1500, height: 920, backgroundColor: bgColor(), title: 'NEXUS',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false },
   });
   win.loadFile(path.join(__dirname, 'index.html'));
@@ -231,6 +289,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  applyTheme();
   createWindow();
   // --selftest=<png>: baut im Test-Datenordner einen Desk auf (ohne Nachrichten zu senden), Screenshot, Ende.
   const st = process.argv.find((a) => a.startsWith('--selftest='));
@@ -240,7 +299,11 @@ app.whenReady().then(() => {
       const result = await win.webContents.executeJavaScript('window.__nexusSelftest && window.__nexusSelftest()');
       console.log('[selftest]', JSON.stringify(result));
       await new Promise((r) => setTimeout(r, 7000));
-      for (const [id, v] of webviews.views) console.log('[selftest] web', id, v.type, JSON.stringify(v.view.getBounds()), 'sichtbar:', v.view.getVisible(), '|', v.view.webContents.getTitle());
+      for (const [id, v] of webviews.views) console.log('[selftest] web', id, v.aiId, JSON.stringify(v.view.getBounds()), 'sichtbar:', v.view.getVisible(), '|', v.view.webContents.getTitle());
+      if (process.argv.includes('--selftest-light')) { await win.webContents.executeJavaScript("document.querySelector('#theme').click(); document.querySelector('.lay:nth-child(2)').click(); document.querySelector('.ws-chip:nth-child(2)').click()"); await new Promise((r) => setTimeout(r, 3000)); }
+      if (process.argv.includes('--selftest-pop')) { await win.webContents.executeJavaScript("document.querySelector('.ai-row').click()"); await new Promise((r) => setTimeout(r, 500)); }
+      if (process.argv.includes('--selftest-close')) { await win.webContents.executeJavaScript("document.querySelector('.ws-chip .x').click()"); await new Promise((r) => setTimeout(r, 500)); }
+      if (process.argv.includes('--selftest-modal')) { await win.webContents.executeJavaScript('openAiManager()'); await new Promise((r) => setTimeout(r, 500)); }
       const img = await win.webContents.capturePage();
       fs.writeFileSync(st.slice('--selftest='.length), img.toPNG());
       console.log('[selftest] screenshot saved');

@@ -1,16 +1,22 @@
 /* global Terminal, FitAddon, NexusChat */
 // NEXUS Oberflaeche: Projekte, Desks (Workspaces im Raster), Claude-Code-Sitzungen.
 const $ = (s) => document.querySelector(s);
-const WS_INFO = {
+const CODE_INFO = {
   'claude-code': { label: 'Claude Code', icon: '✳️', color: '#d97757', kind: 'chat' },
   'claude-code-term': { label: 'Claude Code (Terminal)', icon: '⌨', color: '#d97757', kind: 'term' },
-  claude: { label: 'Claude', icon: '💬', color: '#c96442', kind: 'web' },
-  chatgpt: { label: 'ChatGPT', icon: '🟢', color: '#10a37f', kind: 'web' },
-  gemini: { label: 'Gemini', icon: '✦', color: '#4285f4', kind: 'web' },
 };
+// Workspace-Typ -> Anzeige. Web-KIs kommen aus "Meine KIs".
+function wsInfo(type) {
+  if (CODE_INFO[type]) return CODE_INFO[type];
+  const ai = state.ais.find((a) => a.id === type);
+  return ai ? { ...ai, kind: 'web' } : { label: 'Entfernte KI', icon: '❔', color: '#555', kind: 'web' };
+}
+// Was man in einen Desk legen kann: Claude Code + alle aufgenommenen KIs.
+const addableTypes = () => [...Object.keys(CODE_INFO), ...state.ais.map((a) => a.id)].map((t) => [t, wsInfo(t)]);
 const state = {
   projects: [], sessionMeta: {}, desks: {}, slashCommands: [], palette: [], icons: [],
   project: null, sessions: [], filterColor: null, search: '', usage: null,
+  ais: [], catalog: [], aiStatus: {},
 };
 const live = new Map(); // wsId -> { type, projectId, body, view?, term?, fit?, termId?, busy, waiting, webState }
 
@@ -153,7 +159,7 @@ function openSessionInDesk(s) {
 // ---------- Workspaces ----------
 function addWorkspace(type, extra = {}) {
   const d = desk();
-  const ws = { id: uid(), type, title: extra.title || WS_INFO[type].label, sessionId: extra.sessionId || null, url: null };
+  const ws = { id: uid(), type, title: extra.title || wsInfo(type).label, sessionId: extra.sessionId || null, url: null };
   d.workspaces.push(ws);
   // freie sichtbare Zelle bevorzugen, sonst die fokussierte
   const free = d.cells.slice(0, d.layout).findIndex((c) => !c);
@@ -174,7 +180,10 @@ function removeWorkspace(wsId) {
   const d = desk();
   const ws = wsById(wsId);
   if (!ws) return;
-  if (!confirm(`„${ws.title}“ aus dem Desk entfernen?\n(Der Chat selbst bleibt beim Anbieter bzw. in Claude Code erhalten.)`)) return;
+  confirmRemove(ws, () => reallyRemove(wsId));
+}
+function reallyRemove(wsId) {
+  const d = desk();
   destroyLive(wsId);
   d.workspaces = d.workspaces.filter((w) => w.id !== wsId);
   d.cells = d.cells.map((c) => (c === wsId ? null : c));
@@ -185,7 +194,7 @@ function destroyLive(wsId) {
   if (!l) return;
   if (l.view) l.view.destroy();
   if (l.term) { if (l.termId) window.nexus.kill(l.termId); l.term.dispose(); }
-  if (WS_INFO[l.type].kind === 'web') window.nexus.webDestroy(wsId);
+  if (wsInfo(l.type).kind === 'web') window.nexus.webDestroy(wsId);
   l.body.remove();
   live.delete(wsId);
 }
@@ -194,7 +203,7 @@ function destroyLive(wsId) {
 function ensureLive(ws, pid) {
   if (live.has(ws.id)) return live.get(ws.id);
   const p = project(pid);
-  const kind = WS_INFO[ws.type].kind;
+  const kind = wsInfo(ws.type).kind;
   const body = el('div', { class: 'ws-body ' + kind });
   const l = { type: ws.type, projectId: pid, body, busy: false, waiting: false, webState: {} };
   live.set(ws.id, l);
@@ -212,7 +221,8 @@ function ensureLive(ws, pid) {
     if (state.usage) l.view.setUsage(state.usage);
   } else if (kind === 'term') {
     const term = new Terminal({ fontFamily: 'Cascadia Mono, Consolas, monospace', fontSize: 13, cursorBlink: true,
-      theme: { background: '#111216', foreground: '#e7e8ec', cursor: p.color, selectionBackground: p.color + '55' } });
+      theme: termTheme(p) });
+    l.termProject = p;
     const fit = new FitAddon.FitAddon();
     term.loadAddon(fit);
     l.term = term; l.fit = fit;
@@ -254,7 +264,7 @@ function renderDesk() {
   const grid = $('#grid');
   grid.className = 'layout-' + d.layout;
   // alle DOM-Workspaces erst parken
-  for (const l of live.values()) if (WS_INFO[l.type].kind !== 'web') $('#parking').append(l.body);
+  for (const l of live.values()) if (wsInfo(l.type).kind !== 'web') $('#parking').append(l.body);
   const cells = [];
   for (let i = 0; i < d.layout; i++) {
     const ws = d.cells[i] ? wsById(d.cells[i]) : null;
@@ -284,17 +294,21 @@ function renderCell(i, ws) {
   const cell = el('section', { class: 'cell' + (d.focus === i ? ' focus' : ''), onmousedown: () => { if (d.focus !== i) { d.focus = i; for (const c of document.querySelectorAll('.cell')) c.classList.toggle('focus', c === cell); saveDesk(); } } });
   if (!ws) {
     cell.append(el('div', { class: 'cell-empty' }, el('div', { class: 'ce-title' }, 'Leerer Platz'),
-      el('div', { class: 'ce-btns' }, ...Object.entries(WS_INFO).map(([type, info]) => el('button', { onclick: () => { d.focus = i; addWorkspace(type); } }, `${info.icon} ${info.label}`))),
+      el('div', { class: 'ce-btns' }, ...addableTypes().map(([type, info]) => el('button', { onclick: () => { d.focus = i; addWorkspace(type); } }, `${info.icon} ${info.label}`)),
+        el('button', { class: 'ghost', onclick: () => openAiManager() }, '＋ KI aufnehmen…')),
       d.workspaces.length ? el('div', { class: 'ce-sub' }, 'oder oben einen vorhandenen Workspace anklicken') : null));
     return cell;
   }
-  const info = WS_INFO[ws.type];
+  const info = wsInfo(ws.type);
   const l = ensureLive(ws, state.project);
   const head = el('div', { class: 'cell-head', style: { '--wc': info.color } },
     el('span', { class: 'ch-icon' }, info.icon),
     el('span', { class: 'ch-title', title: ws.title }, ws.title),
     el('span', { class: 'ch-type' }, info.label));
   const actions = el('div', { class: 'ch-actions' });
+  if (info.kind === 'web' && state.aiStatus[ws.type] === 'out') {
+    actions.append(el('button', { class: 'login-hint', title: 'Einmal anmelden – gilt dann für alle Workspaces dieser KI', onclick: () => window.nexus.aiLogin(ws.type) }, 'Anmelden'));
+  }
   if (info.kind === 'web') {
     actions.append(el('button', { title: 'Zurück', onclick: () => window.nexus.webNav(ws.id, 'back') }, '←'),
       el('button', { title: 'Neu laden', onclick: () => window.nexus.webNav(ws.id, 'reload') }, '↻'),
@@ -320,7 +334,7 @@ function renderChrome() {
   const d = desk();
   const visible = d.cells.slice(0, d.layout);
   $('#ws-chips').replaceChildren(...d.workspaces.map((w) => {
-    const info = WS_INFO[w.type];
+    const info = wsInfo(w.type);
     const l = live.get(w.id);
     const x = el('button', { class: 'x', title: 'Aus dem Desk entfernen' }, '×');
     x.onclick = (e) => { e.stopPropagation(); removeWorkspace(w.id); };
@@ -339,7 +353,7 @@ function renderChrome() {
 
 // Native Web-Ansichten an die DOM-Platzhalter anpassen
 function layoutWeb() {
-  if (overlayOpen) return;
+  if (overlayOpen || modalOpen) return;
   const d = desk();
   const shown = new Set();
   for (const slot of document.querySelectorAll('.web-slot')) {
@@ -348,7 +362,7 @@ function layoutWeb() {
     window.nexus.webBounds(id, { x: r.left, y: r.top, width: r.width, height: r.height });
     shown.add(id);
   }
-  for (const [id, l] of live) if (WS_INFO[l.type].kind === 'web' && !shown.has(id)) window.nexus.webBounds(id, null);
+  for (const [id, l] of live) if (wsInfo(l.type).kind === 'web' && !shown.has(id)) window.nexus.webBounds(id, null);
   void d;
 }
 function fitTerms() { for (const l of live.values()) if (l.term && l.termId && l.body.isConnected) l.fit.fit(); }
@@ -367,7 +381,9 @@ window.nexus.onWebState((wsId, s) => {
   if (s.title) {
     // Anbieter-Zusaetze entfernen; Start-/Login-Seiten bekommen den Anbieternamen.
     let t = s.title.replace(/\s*[-|–]\s*(Claude(\.ai)?|ChatGPT|Gemini|Google Gemini)\s*$/i, '').trim();
-    if (!t || /^(Claude|ChatGPT|Gemini|Google Gemini|Neue Sitzung|New chat|Neuer Chat)$/i.test(t) || /^ChatGPT:|Anmelden|Log in|Sign in|Konto erstellen/i.test(t)) t = WS_INFO[ws.type].label;
+    const label = wsInfo(ws.type).label;
+    if (t.endsWith(' - ' + label)) t = t.slice(0, -(label.length + 3)).trim();
+    if (s.auth || !t || t === label || /^(Claude|ChatGPT|Gemini|Google Gemini|Neue Sitzung|New chat|Neuer Chat)$/i.test(t) || /^ChatGPT:|Anmelden|Log in|Sign in|Konto erstellen/i.test(t)) t = label;
     if (t !== ws.title) { ws.title = t.slice(0, 80); changed = true; }
   }
   if (changed) { saveDeskFor(l.projectId); if (l.projectId === state.project) renderChrome(); }
@@ -395,16 +411,216 @@ setInterval(() => {
 $('#add-ws').onclick = (e) => {
   e.stopPropagation();
   openOverlay($('#add-ws'), [el('div', { class: 'menu' }, el('div', { class: 'menu-label' }, 'Workspace hinzufügen'),
-    ...Object.entries(WS_INFO).map(([type, info]) => el('button', { class: 'menu-item', style: { '--wc': info.color }, onclick: (ev) => { ev.stopPropagation(); closeOverlay(); addWorkspace(type); } },
+    ...addableTypes().map(([type, info]) => el('button', { class: 'menu-item', style: { '--wc': info.color }, onclick: (ev) => { ev.stopPropagation(); closeOverlay(); addWorkspace(type); } },
       el('span', { class: 'mi-icon' }, info.icon), el('span', {}, info.label),
-      el('span', { class: 'mi-sub' }, info.kind === 'web' ? 'Webseite' : info.kind === 'chat' ? 'NEXUS-Chat' : 'Terminal'))))]);
+      el('span', { class: 'mi-sub' }, info.kind === 'web' ? statusText(type) : info.kind === 'chat' ? 'NEXUS-Chat' : 'Terminal'))),
+    el('button', { class: 'menu-item', style: { '--wc': '#6366f1' }, onclick: (ev) => { ev.stopPropagation(); closeOverlay(); openAiManager(); } },
+      el('span', { class: 'mi-icon' }, '＋'), el('span', {}, 'KI in NEXUS aufnehmen…')))]);
 };
 $('#open-folder').onclick = () => window.nexus.openFolder(state.project);
+
+// ---------- Theme hell/dunkel ----------
+// NEXUS-Oberflaeche, Claude-Code-Chat und Terminals ueber CSS-Variablen bzw. xterm-Theme.
+// Web-KIs: Electron meldet den Seiten das Farbschema (prefers-color-scheme). Kein Eingriff in die Seiten:
+// Claude/ChatGPT/Gemini folgen, solange ihr Theme dort auf "System" steht.
+const isLight = () => state.settings?.aiTheme === 'light';
+function termTheme(p) {
+  return isLight()
+    ? { background: '#ffffff', foreground: '#1d2027', cursor: p.color, cursorAccent: '#ffffff', selectionBackground: p.color + '44',
+      black: '#1d2027', white: '#8b8f9c', brightWhite: '#636a78', yellow: '#a16207', brightYellow: '#b45309' }
+    : { background: '#111216', foreground: '#e7e8ec', cursor: p.color, selectionBackground: p.color + '55' };
+}
+function renderThemeBtn() {
+  const dark = !isLight();
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  for (const l of live.values()) if (l.term && l.termProject) l.term.options.theme = termTheme(l.termProject);
+  const b = $('#theme');
+  b.textContent = dark ? '🌙' : '☀️';
+  b.title = dark ? 'Dunkles Theme (NEXUS und KIs) – Klick für hell' : 'Helles Theme (NEXUS und KIs) – Klick für dunkel';
+}
+$('#theme').onclick = async () => {
+  state.settings = await window.nexus.setSetting('aiTheme', state.settings.aiTheme === 'light' ? 'dark' : 'light');
+  renderThemeBtn();
+};
+
+// ---------- Meine KIs ----------
+const STATUS = {
+  in: { dot: 'in', text: 'angemeldet' },
+  unknown: { dot: 'unknown', text: 'eingerichtet' },
+  out: { dot: 'out', text: 'nicht angemeldet' },
+};
+const statusText = (id) => (STATUS[state.aiStatus[id]] || { text: 'prüfe…' }).text;
+
+function renderAis() {
+  const rows = state.ais.map((a) => {
+    const st = state.aiStatus[a.id];
+    const row = el('div', { class: 'ai-row', style: { '--wc': a.color }, title: `${a.label}: ${statusText(a.id)}`, onclick: (e) => { e.stopPropagation(); aiStatusPopover(row, a); } },
+      el('span', { class: 'ai-icon' }, a.icon),
+      el('span', { class: 'name' }, a.label),
+      el('span', { class: 'ai-dot ' + (STATUS[st]?.dot || '') }),
+      st === 'out' ? el('button', { class: 'ai-login', onclick: (e) => { e.stopPropagation(); window.nexus.aiLogin(a.id); } }, 'Anmelden') : null);
+    return row;
+  });
+  if (!state.ais.length) rows.push(el('div', { class: 'side-note' }, 'Noch keine KI aufgenommen.'));
+  $('#ai-list').replaceChildren(...rows);
+}
+
+// Statusfenster einer KI (Klick in "Meine KIs")
+function aiStatusPopover(anchor, a) {
+  const st = state.aiStatus[a.id];
+  const uses = Object.entries(state.desks).flatMap(([pid, d]) => d.workspaces.filter((w) => w.type === a.id).map(() => pid));
+  const deskNames = [...new Set(uses)].map((pid) => project(pid)?.name).filter(Boolean);
+  const act = (label, fn, cls = '') => el('button', { class: cls, onclick: (e) => { e.stopPropagation(); closeOverlay(); fn(); } }, label);
+  const hint = {
+    in: 'Angemeldet – gilt für alle Workspaces und Desks.',
+    unknown: 'Eingerichtet. NEXUS kann bei dieser KI nicht sicher erkennen, ob du angemeldet bist.',
+    out: 'Nicht angemeldet. Einmal anmelden genügt für alle Workspaces.',
+  }[st] || 'Status wird geprüft…';
+  openOverlay(anchor, [el('div', { class: 'ai-pop', style: { '--wc': a.color } },
+    el('div', { class: 'ap-head' }, el('span', { class: 'ai-icon' }, a.icon),
+      el('div', {}, el('div', { class: 'ap-name' }, a.label), el('div', { class: 'm-sub' }, a.url)),
+      el('span', { class: 'm-status ' + (STATUS[st]?.dot || '') }, statusText(a.id))),
+    el('div', { class: 'ap-hint' }, hint),
+    el('div', { class: 'm-sub' }, uses.length ? `${uses.length} Workspace(s) in: ${deskNames.join(', ')}` : 'In keinem Desk geöffnet.'),
+    el('div', { class: 'ap-btns' },
+      act(st === 'out' ? 'Anmelden' : 'Konto öffnen', () => window.nexus.aiLogin(a.id), st === 'out' ? 'primary' : ''),
+      act('In aktiven Platz öffnen', () => addWorkspace(a.id)),
+      act('Verwalten…', () => openAiManager())))]);
+  // rechts neben der Zeile statt darunter (Seitenleiste)
+  const pop = $('#popover');
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = `${r.right + 8}px`;
+  pop.style.top = `${Math.max(8, Math.min(r.top - 8, innerHeight - pop.offsetHeight - 8))}px`;
+}
+
+// Bestaetigung mit "Nicht mehr fragen"
+function confirmRemove(ws, onYes) {
+  if (state.settings.confirmRemove === false) return onYes();
+  let skip = false;
+  openModal(() => {
+    document.querySelector('#modal .modal-box').replaceChildren(
+      el('h2', {}, 'Workspace schließen?'),
+      el('p', { class: 'm-sub' }, `„${ws.title}“ wird aus dem Desk entfernt. Der Chat selbst bleibt beim Anbieter bzw. in Claude Code erhalten.`),
+      el('label', { class: 'm-check' }, el('input', { type: 'checkbox', onchange: (e) => { skip = e.target.checked; } }), 'Nicht mehr fragen'),
+      el('div', { class: 'm-foot' },
+        el('button', { onclick: closeModal }, 'Abbrechen'),
+        el('button', { class: 'primary', onclick: async () => {
+          if (skip) state.settings = await window.nexus.setSetting('confirmRemove', false);
+          closeModal(); onYes();
+        } }, 'Schließen')));
+    setTimeout(() => document.querySelector('#modal .primary')?.focus(), 0);
+  });
+}
+window.nexus.onAiStatus((id, st) => {
+  state.aiStatus[id] = st;
+  renderAis();
+  if (modalOpen && modalRender) modalRender();
+  if (state.project) renderDesk();
+});
+$('#ai-add').onclick = () => openAiManager();
+
+// Modal-Dialog (Web-Ansichten liegen nativ darueber -> ausblenden)
+let modalOpen = false;
+let modalRender = null;
+function openModal(render) {
+  closeOverlay();
+  modalOpen = true;
+  modalRender = render;
+  window.nexus.webHideAll();
+  $('#modal').hidden = false;
+  render();
+}
+function closeModal() {
+  modalOpen = false;
+  modalRender = null;
+  $('#modal').hidden = true;
+  layoutWeb();
+}
+$('#modal').addEventListener('mousedown', (e) => { if (e.target.id === 'modal') closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOpen) closeModal(); });
+
+async function refreshAfterAiChange(ais) {
+  state.ais = ais;
+  const st = await window.nexus.getState();
+  state.desks = st.desks;
+  // Live-Instanzen entfernter KIs aufraeumen
+  for (const [id, l] of [...live]) if (wsInfo(l.type).label === 'Entfernte KI') destroyLive(id);
+  state.aiStatus = await window.nexus.aiStatus();
+  renderAis(); renderProjects(); if (state.project) renderDesk();
+  if (modalOpen && modalRender) modalRender();
+}
+
+function openAiManager() {
+  const picked = new Set();
+  let error = '';
+  const render = () => {
+    const box = document.querySelector('#modal .modal-box');
+    const mine = state.ais.map((a) => {
+      const st = state.aiStatus[a.id];
+      return el('div', { class: 'm-ai', style: { '--wc': a.color } },
+        el('span', { class: 'ai-icon' }, a.icon),
+        el('div', { class: 'm-ai-text' }, el('div', {}, a.label), el('div', { class: 'm-sub' }, a.url)),
+        el('span', { class: 'm-status ' + (STATUS[st]?.dot || '') }, statusText(a.id)),
+        el('button', { class: st === 'out' ? 'primary' : '', onclick: () => window.nexus.aiLogin(a.id) }, st === 'out' ? 'Anmelden' : 'Konto öffnen'),
+        st && st !== 'out' ? el('button', { title: 'Alle Anmeldedaten dieser KI in NEXUS löschen', onclick: async () => {
+          if (!confirm(`Bei ${a.label} abmelden?\nNEXUS löscht dafür Cookies und Speicher dieser KI. Offene Workspaces dieser KI werden geschlossen.`)) return;
+          await window.nexus.aiLogout(a.id);
+          await refreshAfterAiChange(state.ais);
+        } }, 'Abmelden') : null,
+        el('button', { class: 'danger', title: 'Aus NEXUS entfernen', onclick: async () => {
+          const n = Object.values(state.desks).reduce((k, d) => k + d.workspaces.filter((w) => w.type === a.id).length, 0);
+          if (!confirm(`${a.label} aus NEXUS entfernen?\nDie Anmeldung wird gelöscht${n ? ` und ${n} Workspace(s) verschwinden aus den Desks` : ''}.\nDeine Chats beim Anbieter bleiben erhalten.`)) return;
+          await refreshAfterAiChange(await window.nexus.aiRemove(a.id));
+        } }, '✕'));
+    });
+    const have = new Set(state.ais.map((a) => a.id));
+    const offer = state.catalog.filter((c) => !have.has(c.id)).map((c) => el('label', { class: 'm-pick' + (picked.has(c.id) ? ' on' : ''), style: { '--wc': c.color } },
+      el('input', { type: 'checkbox', ...(picked.has(c.id) ? { checked: '' } : {}), onchange: (e) => { if (e.target.checked) picked.add(c.id); else picked.delete(c.id); render(); } }),
+      el('span', { class: 'ai-icon' }, c.icon), el('span', {}, c.label)));
+    const nameIn = el('input', { type: 'text', placeholder: 'Name, z. B. Grok', maxlength: '40' });
+    const urlIn = el('input', { type: 'url', placeholder: 'https://…' });
+    const add = async () => {
+      error = '';
+      const custom = urlIn.value.trim() ? { label: nameIn.value, url: urlIn.value } : null;
+      if (!picked.size && !custom) { error = 'Wähle eine KI aus oder gib eine Adresse ein.'; render(); return; }
+      try {
+        const before = new Set(state.ais.map((a) => a.id));
+        const ais = await window.nexus.aiAdd([...picked], custom);
+        picked.clear();
+        await refreshAfterAiChange(ais);
+        // gleich das Anmeldefenster der ersten neuen KI oeffnen
+        const fresh = ais.filter((a) => !before.has(a.id));
+        if (fresh[0]) window.nexus.aiLogin(fresh[0].id);
+      } catch (e) {
+        error = String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+        render();
+      }
+    };
+    box.replaceChildren(...[
+      el('div', { class: 'm-head' }, el('h2', {}, 'Meine KIs'), el('button', { onclick: closeModal }, 'Fertig')),
+      el('p', { class: 'm-sub' }, 'Einmal anmelden genügt: Die Anmeldung gilt für alle Workspaces und Desks dieser KI und bleibt nach einem Neustart erhalten.'),
+      mine.length ? el('div', { class: 'm-list' }, ...mine) : el('div', { class: 'side-note' }, 'Noch keine KI aufgenommen.'),
+      el('h3', {}, 'KI in NEXUS aufnehmen'),
+      offer.length ? el('div', { class: 'm-grid' }, ...offer) : el('div', { class: 'side-note' }, 'Alle bekannten KIs sind schon aufgenommen.'),
+      el('div', { class: 'm-custom' }, el('div', { class: 'm-sub' }, 'Andere KI (Webseite):'), nameIn, urlIn),
+      error ? el('div', { class: 'm-error' }, error) : null,
+      el('div', { class: 'm-foot' }, el('button', { class: 'primary', onclick: add }, 'Aufnehmen & anmelden')),
+      el('h3', {}, 'Einstellungen'),
+      el('label', { class: 'm-check' }, el('input', { type: 'checkbox', ...(state.settings.confirmRemove !== false ? { checked: '' } : {}),
+        onchange: async (e) => { state.settings = await window.nexus.setSetting('confirmRemove', e.target.checked); } }),
+      'Vor dem Schließen eines Workspaces nachfragen')].filter(Boolean));
+  };
+  openModal(render);
+}
 
 // ---------- Start ----------
 (async () => {
   Object.assign(state, await window.nexus.getState());
+  state.settings ||= {};
   renderProjects();
+  renderAis();
+  renderThemeBtn();
+  window.nexus.aiStatus().then((st) => { state.aiStatus = st; renderAis(); });
   const first = project(state.lastProject) || state.projects.find((p) => p.name === 'NEXUS') || state.projects[0];
   if (first) selectProject(first.id);
 })();
@@ -413,6 +629,7 @@ $('#open-folder').onclick = () => window.nexus.openFolder(state.project);
 window.__nexusSelftest = async () => {
   const p = state.projects.find((x) => x.name === 'NEXUS') || state.projects[0];
   await selectProject(p.id);
+  if (!state.ais.some((a) => a.id === 'claude')) await refreshAfterAiChange(await window.nexus.aiAdd(['claude', 'chatgpt']));
   const d = desk();
   d.layout = 3;
   addWorkspace('claude');
