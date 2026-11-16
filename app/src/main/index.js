@@ -14,6 +14,9 @@ const { WebViews, CATALOG } = require('./webviews');
 const { registerIpc } = require('./ipc');
 
 const APP_ID = 'NEXUS';
+// Installierte Version: App-ID wie vom Installer in den Verknuepfungen eingetragen (package.json build.appId).
+// Aus dem Quellcode gestartet: 'NEXUS' wie beim Prototyp.
+const AUMID = app.isPackaged ? 'io.github.caseymazey.nexus' : APP_ID;
 const ROOT = path.join(__dirname, '..', '..');
 
 // ---------- Datenordner ----------
@@ -23,7 +26,7 @@ const isTest = !!dataArg;
 const DATA_DIR = dataArg ? path.resolve(dataArg.slice('--nexus-data='.length)) : path.join(app.getPath('appData'), APP_ID);
 const LEGACY_DIR = path.join(app.getPath('appData'), 'nexus-terminal-test');
 app.setPath('userData', DATA_DIR);
-app.setAppUserModelId(APP_ID);
+app.setAppUserModelId(AUMID);
 app.setName(APP_ID);
 
 // Daten vom Prototyp uebernehmen. Muss vor "ready" passieren, bevor Chromium den Datenordner
@@ -93,7 +96,8 @@ function notifyDecision(project, chatId, ev) {
 
 // Windows zeigt Meldungen nicht installierter Apps nur, wenn eine Startmenue-Verknuepfung dieselbe App-ID traegt.
 function tagShortcuts() {
-  if (process.platform !== 'win32' || isTest) return;
+  // Der Installer setzt die App-ID selbst; nur beim Start aus dem Quellcode nachtragen
+  if (process.platform !== 'win32' || isTest || app.isPackaged) return;
   const links = [path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'NEXUS.lnk'), path.join(app.getPath('desktop'), 'NEXUS.lnk')];
   for (const lnk of links) {
     try {

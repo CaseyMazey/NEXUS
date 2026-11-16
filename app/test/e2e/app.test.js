@@ -13,7 +13,9 @@ const electronPath = require('electron');
 async function launch(data) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-e2e-'));
   if (data) fs.writeFileSync(path.join(dir, 'nexus-data.json'), JSON.stringify(data));
-  const app = await electron.launch({ executablePath: electronPath, args: [APP, `--nexus-data=${dir}`] });
+  // NEXUS_EXE=<pfad>: gegen die gepackte App testen (z. B. dist/win-unpacked/NEXUS.exe)
+  const exe = process.env.NEXUS_EXE;
+  const app = await electron.launch(exe ? { executablePath: exe, args: [`--nexus-data=${dir}`] } : { executablePath: electronPath, args: [APP, `--nexus-data=${dir}`] });
   const page = await app.firstWindow();
   await page.waitForSelector('body[data-ready="1"]', { timeout: 20000 });
   return { app, page, dir };
@@ -113,5 +115,19 @@ test('3C: Befehl per Enter aus dem Vorschlag ausfuehren – /clear leert den Kon
     // lokaler Befehl: keine Abschlusszeile "0 s · 1 Schritt"
     await page.waitForFunction(() => !document.querySelector('.composer .stop:not([hidden])'), null, { timeout: 15000 });
     assert.equal(await page.locator('.note.done').count(), 0);
+  } finally { await app.close(); }
+});
+
+test('Terminal: Claude Code startet im eingebetteten Terminal (node-pty)', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+    desks: { demo: { layout: 1, cells: ['ws-term1', null, null, null], focus: 0, workspaces: [{ id: 'ws-term1', type: 'claude-code-term', title: 'Terminal', sessionId: null, url: null }] } },
+  });
+  try {
+    await page.waitForSelector('.xterm-rows');
+    // Ausgabe von Claude Code kommt an (z. B. Vertrauensabfrage oder Begruessung)
+    await page.waitForFunction(() => (document.querySelector('.xterm-rows')?.textContent || '').trim().length > 20, null, { timeout: 30000 });
   } finally { await app.close(); }
 });
