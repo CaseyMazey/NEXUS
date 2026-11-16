@@ -6,8 +6,10 @@ const FIRST_CHECK = 15 * 1000; // kurz nach dem Start
 
 // Zustand fuer die Oberflaeche: idle | checking | none | downloading | ready | error | off
 class Updater {
-  constructor({ enabled, isEnabledSetting, toUi, log = console.log }) {
+  // testRun: nur pruefen und laden, nie installieren (sonst trifft es die echte Installation)
+  constructor({ enabled, isEnabledSetting, toUi, log = console.log, testRun = false }) {
     this.enabled = enabled;
+    this.testRun = testRun;
     this.isEnabledSetting = isEnabledSetting;
     this.toUi = toUi;
     this.log = log;
@@ -25,7 +27,7 @@ class Updater {
     const { autoUpdater } = require('electron-updater');
     this.au = autoUpdater;
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = !this.testRun;
     autoUpdater.logger = { info: (m) => this.log('[update]', m), warn: (m) => this.log('[update]', m), error: (m) => this.log('[update]', m), debug: () => {} };
     autoUpdater.on('checking-for-update', () => this.set({ status: 'checking' }));
     autoUpdater.on('update-not-available', () => this.set({ status: 'none', checkedAt: Date.now() }));
@@ -48,7 +50,7 @@ class Updater {
 
   // Neu starten und installieren (still, danach startet NEXUS wieder)
   install() {
-    if (this.au && this.state.status === 'ready') this.au.quitAndInstall(true, true);
+    if (this.au && this.state.status === 'ready' && !this.testRun) this.au.quitAndInstall(true, true);
   }
 }
 

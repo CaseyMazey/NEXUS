@@ -162,7 +162,7 @@ app.whenReady().then(async () => {
   });
   const aiById = (id) => store.data.ais.find((a) => a.id === id) || null;
   const webviews = new WebViews(() => win, aiById, (wsId, s) => toUi('web-state', wsId, s), (aiId, s) => toUi('ai-status', aiId, s), t);
-  const updater = new Updater({ enabled: app.isPackaged && (!isTest || process.env.NEXUS_UPDATE_TEST === '1'), isEnabledSetting: () => store.data.settings.autoUpdate !== false, toUi });
+  const updater = new Updater({ enabled: app.isPackaged && (!isTest || process.env.NEXUS_UPDATE_TEST === '1'), testRun: isTest, isEnabledSetting: () => store.data.settings.autoUpdate !== false, toUi });
   registerIpc({
     getWin: () => win, store, projects, agents, webviews, aiById, t, applyTheme, projectRoot, updater, version: app.getVersion(),
     lang, strings: dict(lang), migrated: migration && migration.files ? { from: LEGACY_DIR } : null,

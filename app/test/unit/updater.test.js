@@ -37,6 +37,15 @@ test('installieren nur, wenn ein Update fertig geladen ist', async () => {
   assert.deepEqual(au.installed, { silent: true, run: true });
 });
 
+test('Testlauf installiert nie', () => {
+  const sent = [];
+  const u = new Updater({ enabled: true, testRun: true, isEnabledSetting: () => true, toUi: (c, s) => sent.push(s), log: () => {} });
+  const au = { quitAndInstall: () => { throw new Error('darf nicht installieren'); } };
+  u.au = au;
+  u.set({ status: 'ready', version: '9.9.9' });
+  u.install();
+});
+
 test('waehrend des Ladens keine zweite Pruefung', async () => {
   const { u, au } = make();
   u.set({ status: 'downloading', version: '0.1.2' });
