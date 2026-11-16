@@ -64,7 +64,7 @@ test('3C: Nie fragen im Dropdown, Einreihen waehrend eines Auftrags, Vorschlag p
   try {
     await page.waitForSelector('.composer textarea');
     const modes = await page.$$eval('.composer select:not(.model-sel) option', (o) => o.map((x) => x.value));
-    assert.deepEqual(modes, ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan']);
+    assert.deepEqual(modes, ['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan']);
     await page.selectOption('.composer select:not(.model-sel)', 'bypassPermissions');
     assert.ok(await page.$('.composer select.bypass'));
     // Auftrag laeuft (simuliert): Senden-Knopf bleibt sichtbar und reiht ein
@@ -79,6 +79,13 @@ test('3C: Nie fragen im Dropdown, Einreihen waehrend eines Auftrags, Vorschlag p
     await page.focus('.composer textarea');
     await page.keyboard.press('Tab');
     assert.equal(await page.inputValue('.composer textarea'), 'Tests laufen lassen');
+    // Knopf "nach unten": erscheint erst, wenn man hochscrollt
+    assert.equal(await page.isVisible('.jump-down'), false);
+    await page.evaluate(() => { const v = [...live.values()].find((l) => l.view).view; for (let i = 0; i < 80; i++) v.handle({ type: 'nexus-notice', key: 'chat.sendFailed' }); });
+    await page.$eval('.chat-log', (e) => { e.scrollTop = 0; e.dispatchEvent(new Event('scroll')); });
+    assert.equal(await page.isVisible('.jump-down'), true);
+    await page.click('.jump-down');
+    await page.waitForFunction(() => { const e = document.querySelector('.chat-log'); return e.scrollHeight - e.scrollTop - e.clientHeight < 5; });
     // Einstellung gespeichert
     const s = await page.evaluate(() => state.settings.chatMode);
     assert.equal(s, 'bypassPermissions');

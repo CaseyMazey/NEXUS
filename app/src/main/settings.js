@@ -15,7 +15,7 @@ const VALIDATORS = {
   // zwischen diesen beiden wechselt der Sonne/Mond-Knopf
   lightTheme: (v) => THEMES[v]?.mode === 'light',
   darkTheme: (v) => THEMES[v]?.mode === 'dark',
-  chatMode: (v) => ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan'].includes(v),
+  chatMode: (v) => ['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan'].includes(v),
   chatModel: (v) => typeof v === 'string' && MODEL.test(v),
   notify: (v) => typeof v === 'boolean',
   language: (v) => ['auto', 'de', 'en'].includes(v),

@@ -252,5 +252,8 @@
   "migrate.retry": "Try again",
   "migrate.quit": "Quit",
   "notice.migrated": "Your data from the prototype was taken over ({dir} is unchanged). You are still signed in to your web AIs.",
-  "notice.recovered": "The data file was damaged. NEXUS loaded the latest backup: {file}"
+  "notice.recovered": "The data file was damaged. NEXUS loaded the latest backup: {file}",
+  "mode.pushOnly": "Asks only for push",
+  "mode.pushOnly.hint": "Claude does everything without asking – it only asks you before git push.",
+  "chat.jumpDown": "Jump to the bottom"
 }

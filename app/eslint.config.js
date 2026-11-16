@@ -18,6 +18,6 @@ module.exports = [
   {
     // in den Tests per page.evaluate im Fenster ausgewertet
     files: ['test/e2e/**/*.js'],
-    languageOptions: { globals: { live: 'readonly', state: 'readonly' } },
+    languageOptions: { globals: { live: 'readonly', state: 'readonly', document: 'readonly' } },
   },
 ];

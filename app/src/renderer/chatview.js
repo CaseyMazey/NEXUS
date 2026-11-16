@@ -8,7 +8,7 @@
   const MAX_IMAGE = 5 * 1024 * 1024;
   // eingebaute Befehle mit eigener Beschreibung (Schluessel slash.<befehl>)
   const BUILTIN = ['clear', 'compact', 'context', 'model', 'usage', 'init', 'review', 'code-review', 'effort', 'recap', 'rename'];
-  const MODES = ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan'];
+  const MODES = ['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan'];
 
   function el(tag, props = {}, ...children) {
     const e = document.createElement(tag);
@@ -84,6 +84,7 @@
       modeSel.title = `${t('chat.permissions')}: ${t(`mode.${mode}.hint`)}`;
       modeSel.classList.toggle('auto', mode === 'auto');
       modeSel.classList.toggle('bypass', mode === 'bypassPermissions');
+      modeSel.classList.toggle('pushonly', mode === 'pushOnly');
     };
     modeHint();
     modeSel.onchange = () => {
@@ -108,7 +109,9 @@
     const usage = el('div', { class: 'usage' });
     const slashBox = el('div', { class: 'slash-box', hidden: '' });
     const box = el('div', { class: 'composer-box' }, slashBox, attachRow, input, el('div', { class: 'composer-actions' }, attachBtn, modeSel, usage, modelSel, stopBtn, sendBtn), fileInput);
-    const composer = el('div', { class: 'composer' }, box);
+    // Knopf: ans Ende springen (erscheint, sobald man nach oben gescrollt hat)
+    const jumpBtn = el('button', { class: 'jump-down', title: t('chat.jumpDown'), hidden: '' }, '↓');
+    const composer = el('div', { class: 'composer' }, jumpBtn, box);
     const root = el('div', { class: 'chat' }, log, composer);
     container.append(root);
 
@@ -123,6 +126,8 @@
 
     const nearBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 120;
     const scrollDown = () => { log.scrollTop = log.scrollHeight; };
+    jumpBtn.onclick = () => { log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' }); };
+    log.addEventListener('scroll', () => { jumpBtn.hidden = nearBottom(); });
     const append = (node) => { const stick = nearBottom(); inner.append(node); if (stick) scrollDown(); return node; };
 
     // ----- Denk-Anzeige -----

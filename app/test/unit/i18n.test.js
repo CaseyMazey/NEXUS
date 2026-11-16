@@ -39,7 +39,7 @@ test('jeder im Code benutzte Schluessel steht im Woerterbuch', () => {
     for (const m of s.matchAll(/data-i18n(?:-title|-placeholder)?="([a-zA-Z0-9_.-]+)"/g)) used.add(m[1]);
   }
   // zusammengesetzte Schluessel
-  for (const m of ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan']) { used.add(`mode.${m}`); used.add(`mode.${m}.hint`); }
+  for (const m of ['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan']) { used.add(`mode.${m}`); used.add(`mode.${m}.hint`); }
   for (const th of ['hell', 'creme', 'sand', 'nacht', 'retro', 'kupfer']) { used.add(`theme.${th}`); used.add(`theme.${th}.hint`); }
   for (const s of ['in', 'unknown', 'out', 'checking']) { used.add(`ai.status.${s}`); used.add(`ai.hint.${s}`); }
   for (const k of ['migrate.lockedMsg', 'migrate.lockedDetail', 'migrate.errorMsg', 'migrate.errorDetail']) used.add(k);
