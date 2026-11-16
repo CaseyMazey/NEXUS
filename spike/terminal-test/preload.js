@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('nexus', {
   chatPermission: (id, reqId, decision) => ipcRenderer.invoke('chat-permission', id, reqId, decision),
   chatInterrupt: (id) => ipcRenderer.invoke('chat-interrupt', id),
   chatMode: (id, mode) => ipcRenderer.invoke('chat-mode', id, mode),
+  chatModel: (id, model) => ipcRenderer.invoke('chat-model', id, model),
   chatClose: (id) => ipcRenderer.invoke('chat-close', id),
   onChatEvent: (fn) => ipcRenderer.on('chat-event', (e, id, ev) => fn(id, ev)),
   onFocusChat: (fn) => ipcRenderer.on('focus-chat', (e, id) => fn(id)),

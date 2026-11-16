@@ -60,7 +60,8 @@ const SETTINGS = {
   // zwischen diesen beiden wechselt der Sonne/Mond-Knopf
   lightTheme: (v) => THEMES[v]?.mode === 'light',
   darkTheme: (v) => THEMES[v]?.mode === 'dark',
-  chatMode: (v) => ['default', 'auto', 'plan'].includes(v),
+  chatMode: (v) => ['default', 'acceptEdits', 'auto', 'plan'].includes(v),
+  chatModel: (v) => typeof v === 'string' && /^[a-z0-9.\-]{1,60}$/i.test(v),
   notify: (v) => typeof v === 'boolean',
 };
 // Themes: mode bestimmt, was den KI-Seiten als prefers-color-scheme gemeldet wird; bg ist die Fensterfarbe beim Start.
@@ -192,13 +193,14 @@ function openTerminal({ projectId, resumeId, cols, rows }) {
 // ---------- Claude-Code-Chat ----------
 const chats = new Map();
 let nextChatId = 1;
-function openChat({ projectId, resumeId, mode }) {
+function openChat({ projectId, resumeId, mode, model }) {
   const project = projectById(projectId);
   if (!project) throw new Error('Unbekanntes Projekt');
   if (resumeId && !UUID.test(resumeId)) throw new Error('Ungueltige Sitzungs-ID');
   const chatId = nextChatId++;
   const session = new ChatSession({
     cwd: project.path, resumeId, mode, env: cleanEnv(),
+    model: model && model !== 'default' ? model : null,
     onEvent: (ev) => {
       if (ev.type === 'nexus-exit') chats.delete(chatId);
       if (ev.type === 'permission') notifyDecision(project, chatId, ev);
@@ -313,6 +315,7 @@ handle('chat-permission', (chatId, requestId, decision) => {
 });
 handle('chat-interrupt', (chatId) => chats.get(chatId)?.interrupt());
 handle('chat-mode', (chatId, mode) => chats.get(chatId)?.setMode(mode));
+handle('chat-model', (chatId, model) => chats.get(chatId)?.setModel(model));
 handle('chat-close', (chatId) => { chats.get(chatId)?.close(); chats.delete(chatId); });
 handle('update-project', (id, patch) => {
   const p = projectById(id);
@@ -483,9 +486,11 @@ app.whenReady().then(() => {
       // --selftest-notify: Auto-Modus im ersten Chat waehlen, dann Benachrichtigung wie bei einer Rueckfrage (Fenster gilt als im Hintergrund)
       if (process.argv.includes('--selftest-notify')) {
         const r = await win.webContents.executeJavaScript(`(() => { document.querySelector('.lay').click(); document.querySelector('.ws-chip').click();
-          document.querySelector('.mode-switch .mode-auto').click();
-          const l = [...live.values()].find((x) => x.view); return { chatId: l.view.chatId, mode: document.querySelector('.mode-switch .on').textContent }; })()`);
-        await new Promise((res) => setTimeout(res, 500));
+          const sel = document.querySelector('.composer select'); sel.value = 'auto'; sel.dispatchEvent(new Event('change'));
+          const l = [...live.values()].find((x) => x.view); return { chatId: l.view.chatId, mode: sel.selectedOptions[0].textContent }; })()`);
+        await new Promise((res) => setTimeout(res, 2500));
+        const models = await win.webContents.executeJavaScript(`[...document.querySelector('.composer .model-sel').options].map((o) => o.textContent)`);
+        console.log('[selftest] modelle', JSON.stringify(models));
         console.log('[selftest] modus', r.mode, 'gespeichert:', data.settings.chatMode, 'shortcut-id:', (() => { try { return shell.readShortcutLink(path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'NEXUS.lnk')).appUserModelId; } catch (e) { return e.message; } })());
         win.blur();
         const realFocus = win.isFocused; win.isFocused = () => false;

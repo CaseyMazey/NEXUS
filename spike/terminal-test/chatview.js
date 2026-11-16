@@ -70,31 +70,40 @@
     const attachBtn = el('button', { class: 'icon-btn', title: 'Bild anhängen' }, '📎');
     const sendBtn = el('button', { class: 'send', title: 'Senden' }, '↑');
     const stopBtn = el('button', { class: 'stop', title: 'Stoppen', hidden: '' }, '■');
-    // Rechte-Modus als Umschalter: Manuell (fragt) · Auto (Claude entscheidet, fragt nur bei Riskantem) · Plan
+    // Rechte-Modus (Dropdown). Auto = Auto-Modus von Claude Code: entscheidet selbst, fragt nur bei Riskantem.
     const MODE_INFO = {
-      default: ['✋ Manuell', 'Manuell: Claude fragt vor Änderungen und Befehlen'],
-      auto: ['⚡ Auto', 'Auto: Claude entscheidet selbst und fragt nur bei riskanten Schritten'],
-      plan: ['📝 Plan', 'Nur planen: Claude liest und schlägt vor, ändert aber nichts'],
+      default: ['Manuell (fragt)', 'Claude fragt vor Änderungen und Befehlen'],
+      acceptEdits: ['Änderungen automatisch', 'Dateiänderungen ohne Nachfrage, Befehle mit Nachfrage'],
+      auto: ['Auto', 'Claude entscheidet selbst und fragt nur bei riskanten Schritten'],
+      plan: ['Nur planen', 'Claude liest und schlägt vor, ändert aber nichts'],
     };
     let mode = MODE_INFO[opts.getMode?.()] ? opts.getMode() : 'default';
-    const modeSel = el('div', { class: 'mode-switch', role: 'radiogroup', title: 'Berechtigungen' });
-    function renderMode() {
-      modeSel.replaceChildren(...Object.entries(MODE_INFO).map(([m, [label, hint]]) => el('button', {
-        class: 'mode-' + m + (m === mode ? ' on' : ''), role: 'radio', 'aria-checked': String(m === mode), title: hint,
-        onclick: () => setMode(m),
-      }, label)));
+    const modeSel = el('select', { title: 'Berechtigungen' },
+      ...Object.entries(MODE_INFO).map(([m, [label, hint]]) => el('option', { value: m, title: hint, ...(m === mode ? { selected: '' } : {}) }, label)));
+    const modeHint = () => { modeSel.title = 'Berechtigungen: ' + MODE_INFO[mode][1]; modeSel.classList.toggle('auto', mode === 'auto'); };
+    modeHint();
+    modeSel.onchange = () => {
+      mode = modeSel.value;
+      modeHint();
+      if (view.chatId) window.nexus.chatMode(view.chatId, mode);
+      opts.onMode?.(mode);
+    };
+    // KI-Modell (Liste liefert Claude Code selbst); gilt ab der naechsten Nachricht
+    let model = opts.getModel?.() || 'default';
+    const modelSel = el('select', { class: 'model-sel', title: 'KI-Modell' }, el('option', { value: model }, model === 'default' ? 'Standard' : model));
+    function setModels(list) {
+      modelSel.replaceChildren(...list.map((m) => el('option', { value: m.value, title: m.description, ...(m.value === model ? { selected: '' } : {}) },
+        m.value === 'default' ? `Standard (${m.description.split(' · ')[0] || 'empfohlen'})` : m.label)));
+      if (!list.some((m) => m.value === model)) { model = 'default'; modelSel.value = 'default'; }
     }
-    function setMode(m) {
-      if (m === mode) return;
-      mode = m;
-      renderMode();
-      if (view.chatId) window.nexus.chatMode(view.chatId, m);
-      opts.onMode?.(m);
-    }
-    renderMode();
+    modelSel.onchange = () => {
+      model = modelSel.value;
+      if (view.chatId) window.nexus.chatModel(view.chatId, model);
+      opts.onModel?.(model);
+    };
     const usage = el('div', { class: 'usage' });
     const slashBox = el('div', { class: 'slash-box', hidden: '' });
-    const box = el('div', { class: 'composer-box' }, slashBox, attachRow, input, el('div', { class: 'composer-actions' }, attachBtn, modeSel, usage, stopBtn, sendBtn), fileInput);
+    const box = el('div', { class: 'composer-box' }, slashBox, attachRow, input, el('div', { class: 'composer-actions' }, attachBtn, modeSel, usage, modelSel, stopBtn, sendBtn), fileInput);
     const composer = el('div', { class: 'composer' }, box);
     const root = el('div', { class: 'chat' }, log, composer);
     container.append(root);
@@ -320,6 +329,8 @@
         }
         return;
       }
+      if (ev.type === 'nexus-models') { setModels(ev.models); return; }
+      if (ev.type === 'nexus-model') { usage.dataset.model = String(ev.model).replace(/^claude-/, ''); addNote(`Modell gewechselt: ${modelSel.selectedOptions[0]?.textContent || ev.model} (ab der nächsten Nachricht)`, 'meta'); return; }
       if (ev.type === 'nexus-stderr') { if (/error|fehler/i.test(ev.text)) addNote(ev.text.trim().slice(0, 400), 'warn'); return; }
       if (ev.type === 'nexus-exit' || ev.type === 'nexus-error') {
         view.exited = true; setBusy(false); opts.onWaiting?.(false);
@@ -341,7 +352,7 @@
 
     // ----- Start -----
     view.ready = (async () => {
-      const res = await window.nexus.openChat({ projectId: p.id, resumeId: view.sessionId, mode });
+      const res = await window.nexus.openChat({ projectId: p.id, resumeId: view.sessionId, mode, model });
       view.chatId = res.chatId;
       if (res.history.length) {
         view.titled = true;

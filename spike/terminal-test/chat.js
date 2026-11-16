@@ -23,6 +23,19 @@ class ChatSession {
     this.proc.stderr.on('data', (c) => this.onEvent({ type: 'nexus-stderr', text: c.toString('utf8').slice(0, 2000) }));
     this.proc.on('exit', (code) => this.onEvent({ type: 'nexus-exit', code }));
     this.proc.on('error', (err) => this.onEvent({ type: 'nexus-error', message: err.message }));
+    this.ownRequests = new Map(); // request_id -> callback(response) fuer eigene Steuer-Anfragen
+    // Verfuegbare Modelle von Claude Code holen (kostet nichts, geht nicht ans Modell)
+    this._request({ subtype: 'initialize' }, (r) => {
+      const models = (r?.response?.models || []).filter((m) => m && typeof m.value === 'string')
+        .map((m) => ({ value: m.value, label: String(m.displayName || m.value), description: String(m.description || '') }));
+      if (models.length) this.onEvent({ type: 'nexus-models', models });
+    });
+  }
+
+  _request(request, cb) {
+    const id = crypto.randomUUID();
+    if (cb) this.ownRequests.set(id, cb);
+    this._write({ type: 'control_request', request_id: id, request });
   }
 
   _onData(chunk) {
@@ -59,6 +72,11 @@ class ChatSession {
         input: d.request.input,
         suggestions: d.request.permission_suggestions || [],
       });
+    }
+    if (d.type === 'control_response' && this.ownRequests.has(d.response?.request_id)) {
+      const cb = this.ownRequests.get(d.response.request_id);
+      this.ownRequests.delete(d.response.request_id);
+      return cb(d.response);
     }
     if (d.type === 'control_request') {
       // Andere Steuer-Anfragen kennt der Prototyp nicht -> sauber als Fehler beantworten.
@@ -98,6 +116,14 @@ class ChatSession {
   setMode(mode) {
     if (!MODES.has(mode)) return;
     this._write({ type: 'control_request', request_id: crypto.randomUUID(), request: { subtype: 'set_permission_mode', mode } });
+  }
+
+  // Modell wechseln; gilt ab der naechsten Nachricht. Antwort: aufgeloester Modellname oder Fehler.
+  setModel(model) {
+    if (typeof model !== 'string' || !/^[a-z0-9.\-]{1,60}$/i.test(model)) return;
+    this._request({ subtype: 'set_model', model }, (r) => this.onEvent(r.subtype === 'success'
+      ? { type: 'nexus-model', model: r.response?.model || model }
+      : { type: 'nexus-stderr', text: `Modell konnte nicht gewechselt werden: ${r.error || 'Fehler'}` }));
   }
 
   close() {

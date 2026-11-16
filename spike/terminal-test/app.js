@@ -329,6 +329,8 @@ function ensureLive(ws, pid) {
       // zuletzt gewaehlter Modus gilt auch fuer neue Chats
       getMode: () => state.settings.chatMode,
       onMode: async (m) => { state.settings = await window.nexus.setSetting('chatMode', m); },
+      getModel: () => state.settings.chatModel,
+      onModel: async (m) => { state.settings = await window.nexus.setSetting('chatModel', m); },
       onSession: (id) => { ws.sessionId = id; saveDeskFor(pid); refreshSessionsIf(pid); },
       onTitle: (t) => { ws.title = t; saveDeskFor(pid); renderChrome(); },
       onBusy: (b) => { l.busy = b; renderChrome(); },
