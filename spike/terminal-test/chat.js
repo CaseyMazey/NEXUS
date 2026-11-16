@@ -6,16 +6,27 @@ const crypto = require('node:crypto');
 // default = manuell (fragt), auto = Claude Code entscheidet selbst und fragt nur bei Riskantem, plan = nur planen
 // bypassPermissions = "Nie fragen": alles ohne Rueckfrage. Dafuer startet Claude Code mit --allow-dangerously-skip-permissions
 // (schaltet nur die Moeglichkeit frei; aktiv wird es erst, wenn der Modus gewaehlt ist).
-const MODES = new Set(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan']);
+const MODES = new Set(['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan']);
+
+// pushOnly = "Fragt nur bei Push" (NEXUS-eigener Modus, kleine Schwester von "Nie fragen"):
+// Claude Code laeuft mit acceptEdits; jede Rueckfrage beantwortet NEXUS sofort mit "erlauben",
+// ausser der Befehl pusht (git push). Nur dann erscheint die Erlauben-Karte.
+const PUSH = /(^|[\s;&|(`"'])git(\s+(-C|-c)\s+\S+|\s+--?[\w-]+(=\S+)?)*\s+push\b/i;
+function isPush(req) {
+  const cmd = req && req.input && typeof req.input.command === 'string' ? req.input.command : '';
+  return PUSH.test(cmd);
+}
+const cliMode = (mode) => (mode === 'pushOnly' ? 'acceptEdits' : MODES.has(mode) ? mode : 'default');
 
 class ChatSession {
   constructor({ cwd, resumeId, mode, model, env, onEvent }) {
     this.onEvent = onEvent;
     this.pending = new Map(); // request_id -> request (Rueckfragen)
+    this.pushOnly = mode === 'pushOnly';
     const args = ['/d', '/c', 'claude', '-p',
       '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
       '--include-partial-messages',
-      '--permission-mode', MODES.has(mode) ? mode : 'default',
+      '--permission-mode', cliMode(mode),
       '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio', '--allow-dangerously-skip-permissions'];
     if (resumeId) args.push('--resume', resumeId);
     if (model && /^[a-z0-9.\-]+$/i.test(model)) args.push('--model', model);
@@ -65,6 +76,7 @@ class ChatSession {
     }
     if (d.type === 'control_request' && d.request?.subtype === 'can_use_tool') {
       this.pending.set(d.request_id, d.request);
+      if (this.pushOnly && !isPush(d.request)) return this.answerPermission(d.request_id, 'allow');
       return this.onEvent({
         type: 'permission',
         requestId: d.request_id,
@@ -117,7 +129,8 @@ class ChatSession {
 
   setMode(mode) {
     if (!MODES.has(mode)) return;
-    this._request({ subtype: 'set_permission_mode', mode }, (r) => {
+    this.pushOnly = mode === 'pushOnly';
+    this._request({ subtype: 'set_permission_mode', mode: cliMode(mode) }, (r) => {
       if (r.subtype !== 'success') this.onEvent({ type: 'nexus-stderr', text: `Fehler: Modus konnte nicht gewechselt werden (${r.error || r.error_code || '?'}). Workspace neu laden (↻) und erneut wählen.` });
     });
   }
@@ -136,4 +149,4 @@ class ChatSession {
   }
 }
 
-module.exports = { ChatSession };
+module.exports = { ChatSession, isPush };
