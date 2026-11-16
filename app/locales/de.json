@@ -255,5 +255,6 @@
   "notice.recovered": "Die Datendatei war beschädigt. NEXUS hat die letzte Sicherung geladen: {file}",
   "mode.pushOnly": "Fragt nur bei Push",
   "mode.pushOnly.hint": "Claude macht alles ohne Rückfrage – nur vor git push fragt er dich.",
-  "chat.jumpDown": "Nach ganz unten springen"
+  "chat.jumpDown": "Nach ganz unten springen",
+  "chat.cleared": "Kontext geleert – ab hier neue Unterhaltung"
 }

@@ -312,7 +312,9 @@
       if (!slashBox.hidden) {
         if (e.key === 'ArrowDown') { e.preventDefault(); slashIndex = (slashIndex + 1) % slashItems.length; renderSlash(); return; }
         if (e.key === 'ArrowUp') { e.preventDefault(); slashIndex = (slashIndex - 1 + slashItems.length) % slashItems.length; renderSlash(); return; }
-        if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); pickSlash(slashIndex); return; }
+        if (e.key === 'Tab') { e.preventDefault(); pickSlash(slashIndex); return; }
+        // Enter fuehrt den Befehl gleich aus (wie in Claude Code)
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); pickSlash(slashIndex); send(); return; }
         if (e.key === 'Escape') { slashBox.hidden = true; return; }
       }
       // Tab im leeren Feld uebernimmt den Vorschlag
@@ -368,6 +370,13 @@
           if (d.model) usage.dataset.model = d.model.replace(/^claude-/, '');
           return;
         }
+        // /clear: neue Unterhaltung. Alter Verlauf wird blass, die naechste Nachricht startet eine neue Sitzung.
+        if (d.type === 'conversation_reset') {
+          for (const n of inner.children) n.classList.add('cleared');
+          append(el('div', { class: 'note reset' }, t('chat.cleared')));
+          view.sessionId = null; opts.onSession?.(null);
+          return;
+        }
         if (d.type === 'rate_limit_event') { opts.onUsage?.(d.rate_limit_info); return; }
         if (d.type === 'prompt_suggestion') {
           if (!input.value) setSuggestion(d.suggestion ?? d.prompt ?? d.text ?? (typeof d.content === 'string' ? d.content : ''));
@@ -403,7 +412,8 @@
           if (!turnHadText && d.result && d.subtype === 'success') addAssistant(String(d.result), 'command-output');
           const failed = d.is_error || d.subtype !== 'success';
           if (failed && !/interrupt/i.test(String(d.subtype) + String(d.result || ''))) addNote(t('chat.aborted', { reason: `${d.subtype}${d.result ? ' – ' + String(d.result).slice(0, 200) : ''}` }), 'warn');
-          addDone({ end: Date.now(), ms: d.duration_ms || (turnStart ? Date.now() - turnStart : 0), steps: d.num_turns || 1, stopped: failed });
+          // lokale Befehle (/clear, /context …) laufen ohne Modell: keine Abschlusszeile mit "0 s · 1 Schritt"
+          if (d.num_turns !== 0 || failed) addDone({ end: Date.now(), ms: d.duration_ms || (turnStart ? Date.now() - turnStart : 0), steps: d.num_turns, stopped: failed });
           deliverQueued();
           opts.onTurnDone?.();
           return;

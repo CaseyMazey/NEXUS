@@ -91,3 +91,27 @@ test('3C: Nie fragen im Dropdown, Einreihen waehrend eines Auftrags, Vorschlag p
     assert.equal(s, 'bypassPermissions');
   } finally { await app.close(); }
 });
+
+test('3C: Befehl per Enter aus dem Vorschlag ausfuehren – /clear leert den Kontext (echtes Claude Code, ohne Modell)', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' }, slashCommands: ['clear', 'context', 'compact'],
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+  });
+  try {
+    await page.waitForSelector('.composer textarea');
+    await page.fill('.composer textarea', '/cle');
+    await page.dispatchEvent('.composer textarea', 'input');
+    await page.waitForSelector('.slash-box:not([hidden]) .slash-item.on');
+    assert.match(await page.textContent('.slash-item.on'), /\/clear/);
+    await page.press('.composer textarea', 'Enter');
+    // gesendet: Eingabe leer, Nachricht im Verlauf, Claude Code meldet die neue Unterhaltung
+    assert.equal(await page.inputValue('.composer textarea'), '');
+    await page.waitForSelector('.msg.user .bubble');
+    await page.waitForSelector('.note.reset', { timeout: 45000 });
+    assert.match(await page.textContent('.note.reset'), /Kontext geleert/);
+    // lokaler Befehl: keine Abschlusszeile "0 s · 1 Schritt"
+    await page.waitForFunction(() => !document.querySelector('.composer .stop:not([hidden])'), null, { timeout: 15000 });
+    assert.equal(await page.locator('.note.done').count(), 0);
+  } finally { await app.close(); }
+});

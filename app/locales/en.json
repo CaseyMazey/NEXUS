@@ -255,5 +255,6 @@
   "notice.recovered": "The data file was damaged. NEXUS loaded the latest backup: {file}",
   "mode.pushOnly": "Asks only for push",
   "mode.pushOnly.hint": "Claude does everything without asking – it only asks you before git push.",
-  "chat.jumpDown": "Jump to the bottom"
+  "chat.jumpDown": "Jump to the bottom",
+  "chat.cleared": "Context cleared – new conversation from here"
 }
