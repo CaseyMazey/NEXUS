@@ -10,7 +10,9 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node --test \"test/unit/*.test.js\"",
     "test:e2e": "node --test --test-concurrency=1 \"test/e2e/*.test.js\"",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "dist": "electron-builder --win nsis",
+    "pack": "electron-builder --win dir"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
@@ -22,8 +24,53 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "electron": "45.3.1",
+    "electron-builder": "^26.18.0",
     "eslint": "^9.39.5",
     "globals": "^17.14.0",
     "playwright-core": "^1.65.1"
+  },
+  "author": "CaseyMazey",
+  "homepage": "https://github.com/CaseyMazey/NEXUS",
+  "build": {
+    "appId": "io.github.caseymazey.nexus",
+    "productName": "NEXUS",
+    "copyright": "CaseyMazey",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "locales/**/*",
+      "build/icon.ico",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ],
+    "electronDist": "node_modules/electron/dist",
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "NEXUS",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "NEXUS-Setup-${version}.${ext}",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "npmRebuild": false,
+    "electronLanguages": [
+      "de",
+      "en-US"
+    ]
   }
 }
