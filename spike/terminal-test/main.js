@@ -443,7 +443,11 @@ function tagShortcuts() {
   const links = [path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'NEXUS.lnk'), path.join(app.getPath('desktop'), 'NEXUS.lnk')];
   for (const lnk of links) {
     try {
-      if (fs.existsSync(lnk) && shell.readShortcutLink(lnk).appUserModelId !== 'NEXUS') shell.writeShortcutLink(lnk, 'update', { appUserModelId: 'NEXUS' });
+      if (!fs.existsSync(lnk)) continue;
+      const link = shell.readShortcutLink(lnk);
+      // nur die eigenen Verknuepfungen (auf electron.exe des Prototyps), nie die der installierten App
+      if (path.basename(link.target || '').toLowerCase() !== 'electron.exe') continue;
+      if (link.appUserModelId !== 'NEXUS') shell.writeShortcutLink(lnk, 'update', { appUserModelId: 'NEXUS' });
     } catch (e) { console.log('[shortcut]', lnk, e.message); }
   }
 }
