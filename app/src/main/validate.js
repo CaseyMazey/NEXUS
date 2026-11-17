@@ -40,6 +40,8 @@ function newProjectId(name, exists) {
 
 const samePath = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
 const isIcon = (v) => typeof v === 'string' && v.length > 0 && v.length <= 8;
+// Projektgruppe: frei waehlbarer Name, leer = keine Gruppe
+const cleanGroup = (v) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, 40) : '');
 
 // Desk aus der Oberflaeche bereinigen; isWsType(t) sagt, welche Workspace-Typen es gibt
 function cleanDesk(desk, isWsType) {
@@ -76,4 +78,4 @@ function buildContent(payload) {
   return content.length === 1 && content[0].type === 'text' ? text : content;
 }
 
-module.exports = { UserError, UUID, COLOR, WSID, MODEL, cleanName, folderName, newProjectId, samePath, isIcon, cleanDesk, buildContent };
+module.exports = { UserError, UUID, COLOR, WSID, MODEL, cleanName, folderName, newProjectId, samePath, isIcon, cleanGroup, cleanDesk, buildContent };

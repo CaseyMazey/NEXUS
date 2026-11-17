@@ -7,7 +7,7 @@ const { CATALOG, AI_ID, RESERVED, customAi } = require('./webviews');
 const { saveAttachment } = require('./attachments');
 const { readContext, writeContext } = require('./context');
 
-const CODE_TYPES = ['claude-code', 'claude-code-term'];
+const CODE_TYPES = ['claude-code', 'claude-code-term', 'codex'];
 
 function registerIpc(ctx) {
   const { getWin, store, projects, agents, webviews, aiById, t, applyTheme, projectRoot, updater } = ctx;

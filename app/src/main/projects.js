@@ -1,7 +1,7 @@
 // Projekte: NEXUS fuehrt eine eigene Liste. Ordner auf der Platte werden nie geloescht.
 const fs = require('node:fs');
 const path = require('node:path');
-const { UserError, COLOR, cleanName, folderName, newProjectId, samePath, isIcon } = require('./validate');
+const { UserError, COLOR, cleanName, folderName, newProjectId, samePath, isIcon, cleanGroup } = require('./validate');
 
 const PALETTE = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#a855f7', '#84cc16'];
 const ICONS = ['🧭', '🏡', '🧠', '🔥', '📚', '🛠️', '🎮', '🌐', '🗂️', '✨'];
@@ -35,7 +35,7 @@ class Projects {
       .sort((a, b) => a.localeCompare(b, this.locale, { numeric: true }));
   }
 
-  create({ name, folder, newFolder, icon, color }) {
+  create({ name, folder, newFolder, icon, color, group }) {
     const n = cleanName(name);
     let dir;
     if (newFolder) {
@@ -52,7 +52,7 @@ class Projects {
     const p = {
       id: newProjectId(n, (id) => !!this.byId(id)), name: n, path: dir,
       color: COLOR.test(color || '') ? color : PALETTE[i % PALETTE.length],
-      icon: isIcon(icon) ? icon : ICONS[i % ICONS.length], group: '',
+      icon: isIcon(icon) ? icon : ICONS[i % ICONS.length], group: cleanGroup(group),
     };
     this.list.push(p);
     this.sort();
@@ -66,6 +66,7 @@ class Projects {
     if (patch.color && COLOR.test(patch.color)) p.color = patch.color;
     if (isIcon(patch.icon)) p.icon = patch.icon;
     if ('name' in patch) p.name = cleanName(patch.name);
+    if ('group' in patch) p.group = cleanGroup(patch.group);
     if ('path' in patch) {
       const dir = checkFolder(patch.path);
       const dup = this.list.find((x) => x !== p && samePath(x.path, dir));
