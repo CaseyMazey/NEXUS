@@ -311,7 +311,10 @@ test('Projektgruppen und Tastenkuerzel (Strg+1…9 nach Seitenleiste, Strg+K Sch
     await page.fill('#modal .m-group', 'Urlaub');
     await page.click('#modal .m-foot .primary');
     await page.waitForFunction(() => [...document.querySelectorAll('.p-group .g-name')].some((e) => e.textContent === 'Urlaub'));
-    const saved = JSON.parse(fs.readFileSync(path.join(dir, 'nexus-data.json'), 'utf8'));
+    // NEXUS speichert leicht verzoegert: warten, bis die Datei den neuen Stand hat
+    const read = () => JSON.parse(fs.readFileSync(path.join(dir, 'nexus-data.json'), 'utf8'));
+    for (let i = 0; i < 40 && read().projects.find((p) => p.id === 'ferien').group !== 'Urlaub'; i++) await new Promise((r) => setTimeout(r, 100));
+    const saved = read();
     assert.equal(saved.projects.find((p) => p.id === 'ferien').group, 'Urlaub');
     assert.deepEqual(saved.settings.collapsedGroups, ['Privat']);
   } finally { await app.close(); }
