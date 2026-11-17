@@ -465,3 +465,34 @@ test('Arbeitsschritte standardmaessig eingeklappt, Klick klappt auf und zu', asy
     assert.equal(await page.$eval('.tool-group', (g) => g.open), false);
   } finally { await app.close(); }
 });
+
+test('Antwort-Knoepfe bei Ja/Nein-Frage: Ja schickt die Antwort, Tab uebernimmt den Vorschlag', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: 'x', group: '' }],
+    desks: { demo: ccDesk() },
+  });
+  const answer = () => page.evaluate(() => {
+    const v = [...live.values()].find((l) => l.view).view;
+    v.setBusy(true);
+    v.handle({ type: 'raw', data: { type: 'assistant', message: { content: [{ type: 'text', text: 'Alles laeuft. Soll ich committen und pushen?' }] } } });
+    v.handle({ type: 'raw', data: { type: 'result', subtype: 'success', num_turns: 1, duration_ms: 500 } });
+  });
+  try {
+    await page.waitForSelector('.composer textarea');
+    await answer();
+    await page.waitForSelector('.quick-bar:not([hidden]) button.primary');
+    assert.match(await page.getAttribute('.composer textarea', 'placeholder'), /Ja, mach das/);
+    // Tab uebernimmt den Vorschlag ins Feld
+    await page.focus('.composer textarea');
+    await page.keyboard.press('Tab');
+    assert.equal(await page.inputValue('.composer textarea'), 'Ja, mach das.');
+    await page.fill('.composer textarea', '');
+    // Knopf schickt die Antwort
+    await answer();
+    await page.click('.quick-bar button.primary');
+    await page.waitForFunction(() => /Ja, mach das/.test([...document.querySelectorAll('.msg.user')].pop()?.textContent || ''));
+    assert.equal(await page.isHidden('.quick-bar'), true);
+  } finally { await app.close(); }
+});

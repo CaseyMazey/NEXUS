@@ -362,5 +362,10 @@
   "settings.toolDisplay.live": "Nur während der Arbeit",
   "settings.toolDisplay.never": "Nie anzeigen",
   "settings.toolDisplayHint": "Nur die Anzeige – verbraucht keine Tokens. Eingeklappt zeigt pro Block eine Zeile („6 Schritte · Read, Bash“), ein Klick klappt auf und zu. „Nur während der Arbeit“ blendet die Schritte aus, sobald ein Auftrag fertig ist.",
-  "settings.toolDisplay.collapsed": "Eingeklappt (Klick öffnet)"
+  "settings.toolDisplay.collapsed": "Eingeklappt (Klick öffnet)",
+  "quick.yes": "Ja, mach das.",
+  "quick.no": "Nein, danke.",
+  "quick.yesLabel": "Ja, mach das",
+  "quick.noLabel": "Nein",
+  "quick.hint": "oder Tab, um den Vorschlag zu übernehmen und zu ergänzen"
 }

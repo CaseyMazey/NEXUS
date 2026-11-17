@@ -362,5 +362,10 @@
   "settings.toolDisplay.live": "Only while working",
   "settings.toolDisplay.never": "Never show",
   "settings.toolDisplayHint": "Display only – uses no tokens. Collapsed shows one line per block (“6 steps · Read, Bash”), a click opens and closes it. “Only while working” hides the steps as soon as a task is done.",
-  "settings.toolDisplay.collapsed": "Collapsed (click to open)"
+  "settings.toolDisplay.collapsed": "Collapsed (click to open)",
+  "quick.yes": "Yes, go ahead.",
+  "quick.no": "No, thanks.",
+  "quick.yesLabel": "Yes, go ahead",
+  "quick.noLabel": "No",
+  "quick.hint": "or Tab to take the suggestion and add to it"
 }

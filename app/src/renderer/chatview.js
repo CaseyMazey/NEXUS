@@ -228,6 +228,7 @@
     function addAssistant(text, cls = '', uuid = null) { return finishAssistant(append(el('div', { class: 'msg assistant ' + cls }, md(text))), text, uuid); }
     function finishAssistant(node, text, uuid) {
       node._text = text;
+      lastAnswer = text;
       if (uuid) node.dataset.uuid = uuid;
       node.append(actionsFor(node, 'assistant'));
       return node;
@@ -349,6 +350,26 @@
       b.textContent = '⏹';
       synth.speak(u);
     }
+
+    // ----- Antwort-Knoepfe: Ja/Nein-Fragen am Ende einer Antwort -----
+    const quickBar = el('div', { class: 'quick-bar', hidden: '' });
+    let lastAnswer = '';
+    function clearQuick() { quickBar.hidden = true; quickBar.replaceChildren(); }
+    function sendQuick(text) { clearQuick(); setSuggestion(''); input.value = text; send(); }
+    function offerQuick() {
+      const q = window.NexusQuick.analyze(lastAnswer);
+      if (!q || !q.yesNo) return;
+      const yes = t('quick.yes');
+      quickBar.replaceChildren(
+        el('button', { class: 'primary', title: yes, onclick: () => sendQuick(yes) }, t('quick.yesLabel')),
+        el('button', { title: t('quick.no'), onclick: () => sendQuick(t('quick.no')) }, t('quick.noLabel')),
+        el('span', { class: 'quick-hint' }, t('quick.hint')));
+      quickBar.hidden = false;
+      // Tab-Vorschlag im Eingabefeld (ein Vorschlag von Claude Code selbst haette Vorrang)
+      if (!suggestion && !input.value) setSuggestion(yes);
+    }
+    view.offerQuick = (text) => { lastAnswer = text; offerQuick(); }; // fuer Tests
+    box.prepend(quickBar);
 
     // ----- Vorschlag fuer die naechste Nachricht -----
     function setSuggestion(s) {
@@ -489,6 +510,7 @@
       const text = input.value.trim();
       if ((!text && !attachments.length) || view.exited || pendingFiles()) return;
       cancelContinue();
+      clearQuick();
       // Bearbeiten: erst ab der alten Stelle abzweigen, dann die neue Fassung senden
       if (editing) { const e = editing; stopEditing(); rewind(e.msg, () => { input.value = text; send(); }); return; }
       slashBox.hidden = true;
@@ -504,7 +526,7 @@
       attachments = []; renderAttachments();
       input.value = ''; input.style.height = '';
       if (isQueued) queued.push(msg);
-      else { turnHadText = false; turnStart = Date.now(); setBusy(true); }
+      else { turnHadText = false; turnStart = Date.now(); lastAnswer = ''; setBusy(true); }
       window.nexus.chatSend(view.chatId, payload).then((ok) => {
         if (ok) return;
         if (!isQueued) setBusy(false);
@@ -527,7 +549,7 @@
       if (e.key === 'Tab' && !e.shiftKey && !input.value && takeSuggestion()) { e.preventDefault(); return; }
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
-    input.addEventListener('input', () => { input.style.height = ''; input.style.height = Math.min(input.scrollHeight, 220) + 'px'; updateSlash(); });
+    input.addEventListener('input', () => { if (input.value) clearQuick(); input.style.height = ''; input.style.height = Math.min(input.scrollHeight, 220) + 'px'; updateSlash(); });
     input.addEventListener('blur', () => setTimeout(() => { slashBox.hidden = true; }, 100));
 
     // ----- Ereignisse aus Claude Code -----
@@ -626,6 +648,7 @@
           // lokale Befehle (/clear, /context …) laufen ohne Modell: keine Abschlusszeile mit "0 s · 1 Schritt"
           if (d.num_turns !== 0 || failed) addDone({ end: Date.now(), ms: d.duration_ms || (turnStart ? Date.now() - turnStart : 0), steps: d.num_turns, stopped: failed });
           for (const g of inner.querySelectorAll('.tool-group:not(.finished)')) g.classList.add('finished');
+          if (!failed && !lim.hit) offerQuick();
           deliverQueued();
           opts.onTurnDone?.();
           return;

@@ -71,6 +71,10 @@ input[type=search] { width: 100%; background: var(--bg); color: var(--text); bor
 .chat.tools-never .tool-group, .chat.tools-live .tool-group.finished { display: none; }
 .m-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; }
 .m-row .m-select { width: auto; }
+.quick-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 4px 8px; }
+.quick-bar button { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 12.5px; }
+.quick-bar button.primary { background: var(--accent); color: #fff; border-color: transparent; }
+.quick-bar .quick-hint { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
 .project .count { color: var(--muted); font-size: 11px; background: var(--panel-2); border-radius: 8px; padding: 0 6px; }
 .side-sessions { border-top: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .side-tools { padding: 2px 12px 6px; }
