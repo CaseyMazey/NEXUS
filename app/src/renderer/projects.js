@@ -228,7 +228,7 @@ async function copyContext(pid) {
   const p = project(pid);
   const text = state.contexts[pid] || '';
   if (!p || !text.trim()) return;
-  await navigator.clipboard.writeText(t('context.copyHeader', { name: p.name }) + '\n\n' + text.trim());
+  await window.nexus.copyText(t('context.copyHeader', { name: p.name }) + '\n\n' + text.trim());
   showToast(t('context.copied'));
 }
 

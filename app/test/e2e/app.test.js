@@ -50,9 +50,9 @@ test('Englisch, Projekt und Einstellungen', async () => {
     assert.equal(await page.getAttribute('html', 'lang'), 'en');
     await page.click('#settings');
     assert.equal(await page.textContent('#modal h2'), 'Settings');
-    assert.equal(await page.locator('#modal select.m-select').inputValue(), 'en');
+    assert.equal(await page.locator('#modal select.m-lang').inputValue(), 'en');
     // Sprache umstellen zeigt den Neustart-Hinweis
-    await page.selectOption('#modal select.m-select', 'de');
+    await page.selectOption('#modal select.m-lang', 'de');
     await page.waitForSelector('#modal .m-note');
     // aus dem Quellcode gestartet: Updates aus, mit Hinweis
     assert.match(await page.textContent('#modal'), /Updates are only available in the installed app/);

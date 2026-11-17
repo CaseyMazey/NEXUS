@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('nexus', {
   getState: () => ipcRenderer.invoke('get-state'),
   relaunch: () => ipcRenderer.invoke('relaunch'),
+  copyText: (text) => ipcRenderer.invoke('copy-text', text),
   updateCheck: () => ipcRenderer.invoke('update-check'),
   openLog: () => ipcRenderer.invoke('open-log'),
   claudeCheck: () => ipcRenderer.invoke('claude-check'),

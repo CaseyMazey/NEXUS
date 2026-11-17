@@ -55,7 +55,7 @@ function openSettings() {
         el('span', { class: 'theme-sw' }, ...th.sw.map((c) => el('i', { style: { background: c } }))),
         el('span', { class: 'theme-name' }, themeName(th)), el('span', { class: 'theme-hint' }, themeHint(th)))));
     };
-    const langSel = el('select', { class: 'm-select', onchange: async (e) => { await setSetting('language', e.target.value); render(); } },
+    const langSel = el('select', { class: 'm-select m-lang', onchange: async (e) => { await setSetting('language', e.target.value); render(); } },
       ...[['auto', t('settings.langAuto')], ['de', 'Deutsch'], ['en', 'English']].map(([v, label]) =>
         el('option', { value: v, ...((state.settings.language || 'auto') === v ? { selected: '' } : {}) }, label)));
     const langChanged = (state.settings.language || 'auto') !== startLang;

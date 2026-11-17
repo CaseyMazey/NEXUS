@@ -254,7 +254,7 @@
     function flash(b, icon) { const old = b.textContent; b.textContent = icon; setTimeout(() => { b.textContent = old; }, 1200); }
     function actionsFor(node, kind) {
       const a = el('div', { class: 'msg-actions' });
-      a.append(actBtn('⧉', 'msg.copy', (b) => { navigator.clipboard.writeText(node._text || node.innerText).then(() => flash(b, '✓')); }));
+      a.append(actBtn('⧉', 'msg.copy', (b) => { window.nexus.copyText(node._text || node.innerText).then(() => flash(b, '✓')); }));
       if (kind === 'user') {
         if (canFork) {
           a.append(actBtn('✎', 'msg.edit', () => startEditing(node)));

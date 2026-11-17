@@ -1,5 +1,5 @@
 // Aufrufe aus der NEXUS-Oberflaeche. Jeder Wert wird hier geprueft; Anbieterseiten haben keinen Zugriff.
-const { ipcMain, dialog, shell } = require('electron');
+const { ipcMain, dialog, shell, clipboard } = require('electron');
 const { UserError, UUID, COLOR, WSID, cleanDesk, buildContent } = require('./validate');
 const { VALIDATORS } = require('./settings');
 const { PALETTE, ICONS, isDir } = require('./projects');
@@ -42,6 +42,8 @@ function registerIpc(ctx) {
     version: ctx.version, update: updater.state, claude: ctx.claude.status, platform: process.platform,
   }));
   handle('relaunch', () => ctx.relaunch());
+  // Kopieren ueber Electron: klappt auch, wenn das Fenster gerade nicht den Fokus hat
+  handle('copy-text', (text) => { if (typeof text === 'string') clipboard.writeText(text.slice(0, 1000000)); return true; });
   handle('open-log', () => shell.openPath(ctx.logDir()));
   handle('claude-check', () => ctx.checkClaude());
   // Updates (nur in der installierten App aktiv)
