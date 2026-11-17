@@ -86,6 +86,8 @@ function registerIpc(ctx) {
     if (patch.color === null) delete m.color;
     else if (patch.color && COLOR.test(patch.color)) m.color = patch.color;
     if (typeof patch.pinned === 'boolean') m.pinned = patch.pinned;
+    // angeheftete Nachrichten im Chat: [{ uuid, text }]
+    if (Array.isArray(patch.pins)) m.pins = patch.pins.filter((x) => x && UUID.test(x.uuid) && typeof x.text === 'string').slice(0, 30).map((x) => ({ uuid: x.uuid, text: x.text.slice(0, 300) }));
     data().sessionMeta[sessionId] = m;
     store.save();
     return m;
