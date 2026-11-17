@@ -141,6 +141,7 @@ async function selectProject(id) {
   renderDesk();
   saveDesk();
   $('#session-list').replaceChildren(el('div', { class: 'side-note' }, t('common.loading')));
+  loadContext(id);
   state.sessions = await window.nexus.listSessions(id);
   renderSessions();
 }
@@ -148,6 +149,55 @@ async function refreshSessions() {
   if (!state.project) return;
   state.sessions = await window.nexus.listSessions(state.project);
   renderSessions();
+}
+
+// ---------- Projekt-Kontext ----------
+// Gemeinsames Wissen fuer alle KIs: Claude Code/Codex lesen es ueber CLAUDE.md/AGENTS.md,
+// in Web-KIs kommt es per "Kontext kopieren" und Strg+V.
+async function loadContext(pid) {
+  const text = await window.nexus.contextGet(pid);
+  const changed = (state.contexts[pid] || '') !== text;
+  state.contexts[pid] = text;
+  if (changed && pid === state.project) renderDesk();
+}
+function openContextEditor(p) {
+  let text = state.contexts[p.id] || '';
+  let error = '';
+  let saved = null;
+  const render = () => {
+    const area = el('textarea', { class: 'm-context', rows: '16', placeholder: t('context.placeholder'), spellcheck: 'true' });
+    area.value = text;
+    area.oninput = () => { text = area.value; };
+    const save = async () => {
+      error = '';
+      try {
+        const r = await window.nexus.contextSet(p.id, text);
+        state.contexts[p.id] = text;
+        saved = r.written;
+        renderDesk();
+      } catch (e) { error = errText(e); }
+      render();
+    };
+    modalBox().replaceChildren(...[
+      el('div', { class: 'm-head' }, el('h2', {}, t('context.title', { name: p.name })), el('button', { onclick: closeModal }, t('common.close'))),
+      el('p', { class: 'm-sub' }, t('context.intro')),
+      area,
+      el('p', { class: 'm-sub' }, t('context.where')),
+      saved ? el('div', { class: 'm-note' }, saved.length ? t('context.saved', { files: saved.join(', ') }) : t('context.savedNoChange')) : null,
+      error ? el('div', { class: 'm-error' }, error) : null,
+      el('div', { class: 'm-foot' }, el('button', { class: 'primary', onclick: save }, t('common.save'))),
+    ].filter(Boolean));
+    setTimeout(() => modalBox().querySelector('.m-context')?.focus(), 0);
+  };
+  openModal(render);
+}
+// Fuer Web-KIs: Kontext in die Zwischenablage, dann dort mit Strg+V einfuegen
+async function copyContext(pid) {
+  const p = project(pid);
+  const text = state.contexts[pid] || '';
+  if (!p || !text.trim()) return;
+  await navigator.clipboard.writeText(t('context.copyHeader', { name: p.name }) + '\n\n' + text.trim());
+  showToast(t('context.copied'));
 }
 
 // ---------- Sitzungsliste ----------

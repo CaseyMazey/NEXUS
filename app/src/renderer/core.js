@@ -50,6 +50,7 @@ const state = {
   projects: [], sessionMeta: {}, desks: {}, slashCommands: [], palette: [], icons: [],
   project: null, sessions: [], filterColor: null, search: '', usage: null,
   ais: [], catalog: [], aiStatus: {}, settings: {},
+  contexts: {}, // projectId -> Projektkontext (Text)
 };
 const live = new Map(); // wsId -> { type, projectId, body, view?, term?, fit?, termId?, busy, waiting, webState }
 const project = (id = state.project) => state.projects.find((p) => p.id === id);

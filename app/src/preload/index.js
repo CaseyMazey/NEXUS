@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('nexus', {
   pickFolder: (start) => ipcRenderer.invoke('pick-folder', start),
   updateSessionMeta: (id, patch) => ipcRenderer.invoke('update-session-meta', id, patch),
   openFolder: (projectId) => ipcRenderer.invoke('open-folder', projectId),
+  contextGet: (projectId) => ipcRenderer.invoke('context-get', projectId),
+  contextSet: (projectId, text) => ipcRenderer.invoke('context-set', projectId, text),
   // Terminal
   openTerminal: (opts) => ipcRenderer.invoke('open-terminal', opts),
   input: (termId, d) => ipcRenderer.send('term-input', termId, d),
