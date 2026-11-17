@@ -1,7 +1,7 @@
 {
   "name": "nexus",
   "productName": "NEXUS",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "private": true,
   "description": "NEXUS – lokaler Rahmen für deine KIs: Projekte, Desks, Claude Code und Web-KIs an einem Ort",
   "main": "src/main/index.js",
