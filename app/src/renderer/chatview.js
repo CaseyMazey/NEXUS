@@ -71,7 +71,8 @@
     const attachRow = el('div', { class: 'attach-row', hidden: '' });
     const placeholder = t('chat.placeholder');
     const input = el('textarea', { rows: '1', placeholder, title: t('chat.inputHint') });
-    const fileInput = el('input', { type: 'file', accept: IMAGE_TYPES.join(','), multiple: '', hidden: '' });
+    // alle Dateiarten: Bilder gehen direkt an Claude, alles andere als Kopie mit Pfad
+    const fileInput = el('input', { type: 'file', multiple: '', hidden: '' });
     // Clippy 📎 – bleibt so, wie er ist
     const attachBtn = el('button', { class: 'icon-btn', title: t('chat.attach') }, '📎');
     const sendBtn = el('button', { class: 'send', title: t('chat.send') }, '↑');
@@ -120,7 +121,7 @@
     let live = null;
     let turnHadText = false;
     let turnStart = 0;
-    let attachments = []; // { media_type, data, url }
+    let attachments = []; // Bild: { media_type, data, url } · Datei: { file: true, name, size, path?, pending? }
     let queued = []; // Nachrichten, die waehrend eines laufenden Auftrags geschickt wurden
     let suggestion = ''; // Vorschlag fuer die naechste Nachricht (Tab uebernimmt ihn)
 
@@ -181,9 +182,10 @@
       return `${d.toLocaleDateString(opts.locale(), { day: '2-digit', month: '2-digit' })} ${clock(ts)}`;
     }
     const fullDate = (ts) => new Date(ts).toLocaleString(opts.locale(), { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    function addUser(text, imgs = [], ts = Date.now(), isQueued = false) {
+    function addUser(text, imgs = [], ts = Date.now(), isQueued = false, files = []) {
       const bubble = el('div', { class: 'bubble' });
       if (imgs.length) bubble.append(el('div', { class: 'bubble-imgs' }, ...imgs.map((u) => el('img', { src: u }))));
+      if (files.length) bubble.append(el('div', { class: 'bubble-files' }, ...files.map((f) => el('span', { class: 'file-chip', title: f.path || f.name }, `${fileIcon(f.name)} ${f.name}`))));
       if (text) bubble.append(el('div', {}, text));
       const msg = el('div', { class: 'msg user' + (isQueued ? ' queued' : '') }, bubble);
       const stamp = el('div', { class: 'stamp', title: t('chat.sentAt', { date: fullDate(ts) }) }, isQueued ? `${when(ts)} · ${t('chat.queued')}` : when(ts));
@@ -227,26 +229,58 @@
       return true;
     }
 
-    // ----- Bilder -----
+    // ----- Anhaenge: Bilder direkt, alle anderen Dateien als Kopie mit Pfad -----
+    const sizeText = (n) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+    function fileIcon(name) {
+      const ext = String(name).split('.').pop().toLowerCase();
+      if (['pdf'].includes(ext)) return '📕';
+      if (['doc', 'docx', 'odt', 'rtf', 'txt', 'md'].includes(ext)) return '📄';
+      if (['xls', 'xlsx', 'csv', 'ods'].includes(ext)) return '📊';
+      if (['ppt', 'pptx', 'odp'].includes(ext)) return '📽️';
+      if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '🗜️';
+      if (['mp3', 'wav', 'm4a', 'ogg'].includes(ext)) return '🎵';
+      if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return '🎬';
+      return '📎';
+    }
+    const pendingFiles = () => attachments.some((a) => a.pending);
     function renderAttachments() {
       attachRow.hidden = !attachments.length;
-      attachRow.replaceChildren(...attachments.map((a, i) => {
+      attachRow.replaceChildren(...attachments.map((a) => {
         const x = el('button', { class: 'att-x', title: t('common.remove') }, '×');
-        x.onclick = () => { attachments.splice(i, 1); renderAttachments(); };
-        return el('div', { class: 'att' }, el('img', { src: a.url }), x);
+        x.onclick = () => { attachments = attachments.filter((b) => b !== a); renderAttachments(); };
+        if (!a.file) return el('div', { class: 'att' }, el('img', { src: a.url }), x);
+        return el('div', { class: 'att att-file' + (a.pending ? ' pending' : ''), title: a.path || a.name },
+          el('span', { class: 'att-icon' }, fileIcon(a.name)),
+          el('span', { class: 'att-name' }, a.name),
+          el('span', { class: 'att-size' }, a.pending ? t('chat.uploading') : sizeText(a.size)), x);
       }));
+      sendBtn.disabled = pendingFiles();
     }
     function addFiles(files) {
       for (const f of files) {
-        if (!IMAGE_TYPES.includes(f.type)) { addNote(t('chat.onlyImages', { name: f.name || '?' }), 'warn'); continue; }
-        if (f.size > MAX_IMAGE) { addNote(t('chat.imageTooBig', { name: f.name || '' }), 'warn'); continue; }
-        const reader = new FileReader();
-        reader.onload = () => {
-          const url = String(reader.result);
-          attachments.push({ media_type: f.type, data: url.split(',')[1], url });
+        // kleine Bilder sieht Claude direkt
+        if (IMAGE_TYPES.includes(f.type) && f.size <= MAX_IMAGE) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const url = String(reader.result);
+            attachments.push({ media_type: f.type, data: url.split(',')[1], url });
+            renderAttachments();
+          };
+          reader.readAsDataURL(f);
+          continue;
+        }
+        // alles andere: Kopie im Anhang-Ordner, Claude bekommt den Pfad
+        const a = { file: true, name: f.name || 'datei', size: f.size, pending: true };
+        attachments.push(a);
+        renderAttachments();
+        f.arrayBuffer().then((buf) => window.nexus.chatAttach(a.name, new Uint8Array(buf))).then((r) => {
+          Object.assign(a, r, { pending: false });
           renderAttachments();
-        };
-        reader.readAsDataURL(f);
+        }).catch((e) => {
+          attachments = attachments.filter((b) => b !== a);
+          renderAttachments();
+          addNote(String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), 'warn');
+        });
       }
     }
     attachBtn.onclick = () => fileInput.click();
@@ -288,13 +322,17 @@
     // ----- Senden (laeuft ein Auftrag, wird die Nachricht eingereiht) -----
     function send() {
       const text = input.value.trim();
-      if ((!text && !attachments.length) || view.exited) return;
+      if ((!text && !attachments.length) || view.exited || pendingFiles()) return;
       slashBox.hidden = true;
       setSuggestion('');
       const isQueued = view.busy;
-      const msg = addUser(text, attachments.map((a) => a.url), Date.now(), isQueued);
+      const images = attachments.filter((a) => !a.file);
+      const files = attachments.filter((a) => a.file);
+      const msg = addUser(text, images.map((a) => a.url), Date.now(), isQueued, files);
       scrollDown();
-      const payload = attachments.length ? { text, images: attachments.map(({ media_type, data }) => ({ media_type, data })) } : text;
+      // Dateien: Pfade der Kopien an die Nachricht haengen, damit Claude sie lesen kann
+      const full = files.length ? `${text}${text ? '\n\n' : ''}${t('chat.attachedFiles')}\n${files.map((f) => `- ${f.path}`).join('\n')}` : text;
+      const payload = images.length ? { text: full, images: images.map(({ media_type, data }) => ({ media_type, data })) } : full;
       attachments = []; renderAttachments();
       input.value = ''; input.style.height = '';
       if (isQueued) queued.push(msg);

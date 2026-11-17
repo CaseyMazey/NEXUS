@@ -174,3 +174,30 @@ test('Claude Code fehlt: Hinweis statt 3C', async () => {
     await page.waitForFunction(() => /nicht angemeldet/.test(document.querySelector('.claude-hint')?.textContent || ''));
   } finally { await app.close(); }
 });
+
+test('3C: beliebige Dateien anhaengen (Kopie im Anhang-Ordner), Bilder weiter direkt', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const src = path.join(proj, 'Lebenslauf Test.docx');
+  fs.writeFileSync(src, 'PK-fake-docx-inhalt');
+  const png = path.join(proj, 'bild.png');
+  fs.writeFileSync(png, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
+  const { app, page, dir } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+  });
+  try {
+    await page.waitForSelector('.composer textarea');
+    await page.setInputFiles('.composer input[type=file]', [src, png]);
+    await page.waitForSelector('.att-file:not(.pending)');
+    assert.match(await page.textContent('.att-file .att-name'), /Lebenslauf Test\.docx/);
+    await page.waitForSelector('.attach-row .att img');
+    assert.equal(await page.isDisabled('.composer .send'), false);
+    // Kopie liegt im Anhang-Ordner, das Original bleibt
+    const days = fs.readdirSync(path.join(dir, 'attachments'));
+    const sub = fs.readdirSync(path.join(dir, 'attachments', days[0]));
+    assert.equal(fs.readFileSync(path.join(dir, 'attachments', days[0], sub[0], 'Lebenslauf Test.docx'), 'utf8'), 'PK-fake-docx-inhalt');
+    assert.ok(fs.existsSync(src));
+    // keine Warnung "nur Bilder" mehr
+    assert.equal(await page.locator('.note.warn').count(), 0);
+  } finally { await app.close(); }
+});

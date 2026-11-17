@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('nexus', {
   // Claude-Code-Chat
   openChat: (opts) => ipcRenderer.invoke('open-chat', opts),
   chatSend: (id, payload) => ipcRenderer.invoke('chat-send', id, payload),
+  chatAttach: (name, data) => ipcRenderer.invoke('chat-attach', name, data),
   chatPermission: (id, reqId, decision) => ipcRenderer.invoke('chat-permission', id, reqId, decision),
   chatInterrupt: (id) => ipcRenderer.invoke('chat-interrupt', id),
   chatMode: (id, mode) => ipcRenderer.invoke('chat-mode', id, mode),

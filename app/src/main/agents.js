@@ -16,8 +16,8 @@ function cleanEnv() {
 
 class Agents {
   // projectById(id); toUi(channel, ...args); onPermission(project, chatId, ev); onSlashCommands(list)
-  constructor({ projectById, toUi, onPermission, onSlashCommands, t }) {
-    Object.assign(this, { projectById, toUi, onPermission, onSlashCommands, t });
+  constructor({ projectById, toUi, onPermission, onSlashCommands, t, attachDir }) {
+    Object.assign(this, { projectById, toUi, onPermission, onSlashCommands, t, attachDir });
     this.terms = new Map();
     this.chats = new Map();
     this.nextTermId = 1;
@@ -54,6 +54,7 @@ class Agents {
       cwd: project.path, resumeId, mode, env: cleanEnv(),
       model: model && model !== 'default' ? model : null,
       denyMessage: this.t('chat.denied'),
+      addDirs: this.attachDir ? [this.attachDir] : [],
       onEvent: (ev) => {
         if (ev.type === 'nexus-exit') this.chats.delete(chatId);
         if (ev.type === 'permission') this.onPermission(project, chatId, ev);
