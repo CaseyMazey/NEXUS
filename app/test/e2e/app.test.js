@@ -143,12 +143,12 @@ test('Terminal: Claude Code startet im eingebetteten Terminal (node-pty)', async
 test('Fenster merkt sich Groesse und Position, Protokoll wird geschrieben, Claude-Code-Status kommt an', async () => {
   const { app, page, dir } = await launch({ version: 1, projects: [], desks: {}, ais: [], settings: { language: 'de' } });
   try {
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setBounds({ x: 120, y: 90, width: 1111, height: 777 }));
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setBounds({ x: 40, y: 30, width: 901, height: 651 }));
     await page.waitForFunction(() => state.claude !== undefined && state.claude !== null, null, { timeout: 30000 }).catch(() => {});
   } finally { await app.close(); }
   const saved = JSON.parse(fs.readFileSync(path.join(dir, 'nexus-data.json'), 'utf8')).window;
-  assert.equal(saved.width, 1111);
-  assert.equal(saved.height, 777);
+  assert.equal(saved.width, 901);
+  assert.equal(saved.height, 651);
   const logs = fs.readdirSync(path.join(dir, 'logs'));
   assert.equal(logs.length, 1);
   const text = fs.readFileSync(path.join(dir, 'logs', logs[0]), 'utf8');
@@ -160,8 +160,8 @@ test('Fenster merkt sich Groesse und Position, Protokoll wird geschrieben, Claud
     const page2 = await app2.firstWindow();
     await page2.waitForSelector('body[data-ready="1"]');
     const b = await app2.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
-    assert.equal(b.width, 1111);
-    assert.equal(b.height, 777);
+    assert.equal(b.width, 901);
+    assert.equal(b.height, 651);
   } finally { await app2.close(); }
 });
 
@@ -307,7 +307,7 @@ test('Projektgruppen und Tastenkuerzel (Strg+1…9 nach Seitenleiste, Strg+K Sch
     // aktives Projekt in eingeklappter Gruppe bleibt sichtbar
     assert.match(await page.textContent('#project-list'), /Ferien/);
     // Gruppe im Editor aendern
-    await page.click('.project.active .p-edit');
+    await page.click('.project.active', { button: 'right' }); // ✎ erscheint nur beim Ueberfahren mit der Maus
     await page.fill('#modal .m-group', 'Urlaub');
     await page.click('#modal .m-foot .primary');
     await page.waitForFunction(() => [...document.querySelectorAll('.p-group .g-name')].some((e) => e.textContent === 'Urlaub'));
