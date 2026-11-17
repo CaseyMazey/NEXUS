@@ -137,7 +137,7 @@
   "theme.kupfer.hint": "Claude's pick: charcoal and copper",
   "settings.title": "Settings",
   "settings.language": "Language",
-  "settings.langAuto": "Same as Windows",
+  "settings.langAuto": "Same as system",
   "settings.langRestart": "The new language applies after restarting NEXUS.",
   "settings.restartNow": "Restart now",
   "settings.theme": "Theme",
@@ -148,7 +148,7 @@
   "settings.projectRoot": "Projects folder",
   "settings.projectRootHint": "NEXUS creates new project folders here and suggests existing folders from here.",
   "settings.notifications": "Notifications",
-  "settings.notify": "Windows notification when Claude needs a decision and NEXUS is in the background",
+  "settings.notify": "Notification when Claude needs a decision and NEXUS is in the background",
   "settings.workspaces": "Workspaces",
   "settings.confirmRemove": "Ask before closing a workspace",
   "chat.placeholder": "Message Claude Code…",
@@ -306,7 +306,9 @@
   "context.saved": "Saved and mirrored to: {files}",
   "context.savedNoChange": "Saved.",
   "context.copy": "Context",
-  "context.copyHint": "Copy project context – then paste it here with Ctrl+V",
+  "context.copyHint": "Copy project context – then paste it here with {mod}+V",
   "context.copyHeader": "Project context “{name}” (from NEXUS):",
-  "context.copied": "Project context copied – now paste it into the chat with Ctrl+V."
+  "context.copied": "Project context copied – now paste it into the chat with {mod}+V.",
+  "update.available": "NEXUS {version} is available. Download the new version and install it like the first time – your data is kept.",
+  "update.download": "Download"
 }

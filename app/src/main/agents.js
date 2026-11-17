@@ -4,6 +4,7 @@ const path = require('node:path');
 const { ChatSession } = require('./chat');
 const { readHistory } = require('./sessions');
 const { UserError, UUID } = require('./validate');
+const { claudeCommand, isWin } = require('./platform');
 
 // Umgebung fuer Claude Code: Variablen einer umgebenden Claude-Code-Sitzung entfernen
 function cleanEnv() {
@@ -34,11 +35,10 @@ class Agents {
   openTerminal({ projectId, resumeId, cols, rows }) {
     const project = this.project(projectId, resumeId);
     const pty = require('node-pty');
-    const args = ['/d', '/c', 'claude'];
-    if (resumeId) args.push('--resume', resumeId);
-    const proc = pty.spawn(process.env.ComSpec || 'cmd.exe', args, {
+    const cmd = claudeCommand(resumeId ? ['--resume', resumeId] : []);
+    const proc = pty.spawn(cmd.file, cmd.args, {
       name: 'xterm-256color', cols: Math.max(20, cols | 0) || 120, rows: Math.max(5, rows | 0) || 30,
-      cwd: project.path, env: cleanEnv(), useConpty: true,
+      cwd: project.path, env: cleanEnv(), ...(isWin ? { useConpty: true } : {}),
     });
     const termId = this.nextTermId++;
     this.terms.set(termId, proc);

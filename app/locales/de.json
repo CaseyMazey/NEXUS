@@ -137,7 +137,7 @@
   "theme.kupfer.hint": "Claudes Wahl: Kohle und Kupfer",
   "settings.title": "Einstellungen",
   "settings.language": "Sprache",
-  "settings.langAuto": "Wie Windows",
+  "settings.langAuto": "Wie das System",
   "settings.langRestart": "Die neue Sprache gilt nach einem Neustart von NEXUS.",
   "settings.restartNow": "Jetzt neu starten",
   "settings.theme": "Theme",
@@ -148,7 +148,7 @@
   "settings.projectRoot": "Projektordner",
   "settings.projectRootHint": "Hier legt NEXUS neue Projektordner an, und von hier schlägt es vorhandene Ordner vor.",
   "settings.notifications": "Benachrichtigungen",
-  "settings.notify": "Windows-Benachrichtigung, wenn Claude eine Entscheidung braucht und NEXUS im Hintergrund ist",
+  "settings.notify": "Benachrichtigung, wenn Claude eine Entscheidung braucht und NEXUS im Hintergrund ist",
   "settings.workspaces": "Workspaces",
   "settings.confirmRemove": "Vor dem Schließen eines Workspaces nachfragen",
   "chat.placeholder": "Nachricht an Claude Code…",
@@ -306,7 +306,9 @@
   "context.saved": "Gespeichert und gespiegelt in: {files}",
   "context.savedNoChange": "Gespeichert.",
   "context.copy": "Kontext",
-  "context.copyHint": "Projektkontext kopieren – dann hier mit Strg+V einfügen",
+  "context.copyHint": "Projektkontext kopieren – dann hier mit {mod}+V einfügen",
   "context.copyHeader": "Projektkontext „{name}“ (aus NEXUS):",
-  "context.copied": "Projektkontext kopiert – jetzt im Chat mit Strg+V einfügen."
+  "context.copied": "Projektkontext kopiert – jetzt im Chat mit {mod}+V einfügen.",
+  "update.available": "NEXUS {version} ist verfügbar. Lade die neue Version herunter und installiere sie wie beim ersten Mal – deine Daten bleiben erhalten.",
+  "update.download": "Herunterladen"
 }

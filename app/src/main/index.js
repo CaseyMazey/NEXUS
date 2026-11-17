@@ -1,6 +1,6 @@
 // NEXUS – Hauptprozess: Datenordner, Daten-Umzug, Fenster, Benachrichtigungen.
 // Die Aufrufe aus der Oberflaeche stehen in ipc.js.
-const { app, BrowserWindow, shell, nativeTheme, dialog, Notification, screen } = require('electron');
+const { app, BrowserWindow, shell, nativeTheme, dialog, Notification, screen, Menu } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -17,6 +17,10 @@ const { initLog, logDir } = require('./log');
 const { checkClaude } = require('./claude-check');
 const { cleanEnv } = require('./agents');
 const { pruneAttachments } = require('./attachments');
+const { fixPath, isMac, isWin } = require('./platform');
+
+// macOS/Linux: Programmpfad der Shell uebernehmen, damit "claude" gefunden wird
+fixPath();
 
 const APP_ID = 'NEXUS';
 // Installierte Version: App-ID wie vom Installer in den Verknuepfungen eingetragen (package.json build.appId).
@@ -132,18 +136,23 @@ function rememberBounds() {
 
 function createWindow() {
   win = new BrowserWindow({
-    ...savedBounds(), backgroundColor: theme().bg, title: 'NEXUS', icon: path.join(ROOT, 'build', 'icon.ico'), show: false,
+    ...savedBounds(), backgroundColor: theme().bg, title: 'NEXUS', icon: path.join(ROOT, 'build', isWin ? 'icon.ico' : 'icon.png'), show: false,
     webPreferences: { preload: path.join(ROOT, 'src', 'preload', 'index.js'), sandbox: true, contextIsolation: true, nodeIntegration: false },
   });
-  // Keine Menueleiste; Entwicklerwerkzeuge und Zoom ueber eigene Tastenkuerzel
-  win.removeMenu();
+  // Windows/Linux: keine Menueleiste. macOS braucht ein Menue, sonst gehen ⌘C/⌘V/⌘Q nicht.
+  if (isMac) {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]));
+  } else {
+    win.removeMenu();
+  }
   win.webContents.on('before-input-event', (e, i) => {
     if (i.type !== 'keyDown') return;
     const wc = win.webContents;
-    if (i.key === 'F12' || (i.control && i.shift && i.key.toLowerCase() === 'i')) { wc.toggleDevTools(); e.preventDefault(); }
-    else if (i.control && (i.key === '+' || i.key === '=')) { wc.setZoomLevel(Math.min(wc.getZoomLevel() + 0.5, 4)); e.preventDefault(); }
-    else if (i.control && i.key === '-') { wc.setZoomLevel(Math.max(wc.getZoomLevel() - 0.5, -3)); e.preventDefault(); }
-    else if (i.control && i.key === '0') { wc.setZoomLevel(0); e.preventDefault(); }
+    const mod = isMac ? i.meta : i.control; // ⌘ auf dem Mac, sonst Strg
+    if (i.key === 'F12' || (mod && (i.shift || i.alt) && i.key.toLowerCase() === 'i')) { wc.toggleDevTools(); e.preventDefault(); }
+    else if (mod && (i.key === '+' || i.key === '=')) { wc.setZoomLevel(Math.min(wc.getZoomLevel() + 0.5, 4)); e.preventDefault(); }
+    else if (mod && i.key === '-') { wc.setZoomLevel(Math.max(wc.getZoomLevel() - 0.5, -3)); e.preventDefault(); }
+    else if (mod && i.key === '0') { wc.setZoomLevel(0); e.preventDefault(); }
   });
   if (store.data.window?.maximized) win.maximize();
   win.once('ready-to-show', () => win.show());

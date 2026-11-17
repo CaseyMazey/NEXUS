@@ -39,7 +39,7 @@ function registerIpc(ctx) {
     catalog: Object.entries(CATALOG).map(([id, c]) => ({ id, label: c.label, icon: c.icon, color: c.color, url: c.url })),
     lastProject: data().lastProject || null, settings: data().settings,
     lang: ctx.lang, strings: ctx.strings, migrated: ctx.migrated, recovered: store.recovered,
-    version: ctx.version, update: updater.state, claude: ctx.claude.status,
+    version: ctx.version, update: updater.state, claude: ctx.claude.status, platform: process.platform,
   }));
   handle('relaunch', () => ctx.relaunch());
   handle('open-log', () => shell.openPath(ctx.logDir()));

@@ -20,23 +20,43 @@ npm run lint
 ## Installer bauen
 
 ```bash
-npm run dist       # dist/NEXUS-Setup-<version>.exe
-npm run pack       # nur entpackt: dist/win-unpacked/NEXUS.exe (zum Testen)
+npm run dist:win     # Windows: dist/NEXUS-Setup-<version>.exe
+npm run dist:mac     # macOS (nur auf einem Mac): dist/NEXUS-mac-arm64.dmg und -x64.dmg
+npm run dist:linux   # Linux (nur unter Linux): AppImage und .deb
+npm run pack         # nur entpackt, zum Testen
 ```
 
+Normalerweise baut **GitHub Actions** alle drei Systeme, siehe „Neue Version veröffentlichen“.
+
+**Windows**
 - **Installation pro Benutzer**, ohne Admin-Rechte, nach `%LOCALAPPDATA%\Programs\nexus`. Startmenü- und Desktop-Verknüpfung „NEXUS“. Die Verknüpfungen des Prototyps werden dabei ersetzt.
 - **Deinstallieren** über Windows-Einstellungen → Apps. Deine Daten in `%APPDATA%\NEXUS` bleiben erhalten.
 - Der Installer ist **nicht signiert**: Beim ersten Start warnt Windows SmartScreen („Unbekannter Herausgeber“ → „Weitere Informationen“ → „Trotzdem ausführen“).
-- `node-pty` bringt fertige Binärdateien mit; beim Bauen wird nichts kompiliert (`npmRebuild: false`).
+- `node-pty` bringt für Windows und macOS fertige Binärdateien mit; beim Bauen wird nichts kompiliert (`npmRebuild: false`). Unter Linux wird es kompiliert (`dist:linux`).
+
+**macOS**
+- Ohne Apple-Entwicklerkonto: Die App ist nur ad-hoc signiert (`identity: "-"`), damit sie auf Apple-Silicon-Macs startet. Beim ersten Öffnen braucht es Rechtsklick → Öffnen (Anleitung in der Repo-README).
+- Selbst aktualisieren kann sich eine Mac-App ohne Apple-Signatur nicht. NEXUS meldet neue Versionen und öffnet die Download-Seite.
+- NEXUS übernimmt beim Start den Programmpfad der Shell (`platform.js`), damit `claude` gefunden wird.
+
+**Linux**
+- Das AppImage aktualisiert sich selbst. Beim `.deb` meldet NEXUS neue Versionen nur.
 - Oberflächentests gegen die gepackte App: `NEXUS_EXE=dist/win-unpacked/NEXUS.exe npm run test:e2e`.
 
 ## Neue Version veröffentlichen (Updates)
 
 ```bash
-npm run release -- 0.1.2 "Was ist neu – kurz, für Nutzer"
+npm run release -- 0.2.0 "Was ist neu – kurz, für Nutzer"
 ```
 
-Das Skript setzt die Version in `package.json`, baut das Setup, committet und pusht und legt das GitHub Release `v0.1.2` mit Setup, `.blockmap` und `latest.yml` an. Es braucht ein sauberes Arbeitsverzeichnis und ein angemeldetes `gh`.
+Das Skript setzt die Version in `package.json`, committet, legt den Tag `v0.2.0` mit den Notizen an und pusht beides. Es läuft nur auf `main` mit sauberem Arbeitsverzeichnis.
+
+Den Rest erledigt GitHub Actions (`.github/workflows/release.yml`):
+- Es baut auf echten Windows-, Mac- und Linux-Rechnern.
+- Danach legt es das Release mit allen Dateien an: Setup, `.dmg`, AppImage, `.deb` und die `latest*.yml` für die Updates.
+- Zusätzlich gibt es `NEXUS-Setup.exe` mit festem Namen für den Download-Knopf.
+
+Bei jedem Pull Request laufen die Unit-Tests auf allen drei Systemen (`.github/workflows/ci.yml`).
 
 Die installierte App prüft 15 Sekunden nach dem Start und danach alle 6 Stunden auf GitHub Releases (`CaseyMazey/NEXUS`). Ein Update lädt sie im Hintergrund und zeigt dann „Jetzt neu starten“ oder „Später“. Bei „Später“ wird beim Beenden installiert. In ⚙ Einstellungen stehen die Version und „Nach Updates suchen“, und automatische Updates lassen sich dort abschalten.
 

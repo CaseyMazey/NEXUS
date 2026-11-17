@@ -11,6 +11,8 @@ async function start() {
   const st = await window.nexus.getState();
   STRINGS = st.strings || {};
   LANG = st.lang || 'de';
+  PLATFORM = st.platform || 'win32';
+  document.documentElement.dataset.platform = PLATFORM;
   delete st.strings;
   Object.assign(state, st);
   state.settings ||= {};
@@ -59,6 +61,7 @@ window.nexus.onClaudeStatus((c) => {
 function updateText(u) {
   if (!u) return '';
   if (u.status === 'downloading') return t('update.downloading', { version: u.version || '', percent: u.percent || 0 });
+  if (u.status === 'available') return t('update.available', { version: u.version || '' });
   if (u.status === 'error') return t('update.error');
   return t(`update.status.${u.status}`);
 }
@@ -67,6 +70,13 @@ window.nexus.onUpdateState((u) => {
   state.update = u;
   if (modalOpen && modalRender) modalRender();
   // fertig geladen: einmal Bescheid geben; "Spaeter" installiert beim Beenden
+  // Mac / Linux-deb: neue Version nur melden, Download im Browser
+  if (u.status === 'available' && !updateToast) {
+    updateToast = showToast(t('update.available', { version: u.version }), [
+      el('button', { class: 'primary', onclick: () => window.nexus.updateInstall() }, t('update.download')),
+      el('button', { onclick: () => updateToast.remove() }, t('update.later')),
+    ], true);
+  }
   if (u.status === 'ready' && !updateToast) {
     updateToast = showToast(t('update.ready', { version: u.version }), [
       el('button', { class: 'primary', onclick: () => window.nexus.updateInstall() }, t('update.restart')),

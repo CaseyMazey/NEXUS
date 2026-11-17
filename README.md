@@ -8,12 +8,14 @@
 <em>Your AI. Your Workspace. Your Way.</em></p>
 
 <p align="center">
-  <a href="https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-Setup.exe"><img src="https://img.shields.io/badge/Download-NEXUS%20f%C3%BCr%20Windows-6366f1?style=for-the-badge&logo=windows&logoColor=white" alt="Download NEXUS für Windows"></a>
+  <a href="https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-Setup.exe"><img src="https://img.shields.io/badge/Windows-Download-6366f1?style=for-the-badge&logo=windows&logoColor=white" alt="Download für Windows"></a>
+  <a href="#macos"><img src="https://img.shields.io/badge/macOS-Download-6366f1?style=for-the-badge&logo=apple&logoColor=white" alt="Download für macOS"></a>
+  <a href="#linux"><img src="https://img.shields.io/badge/Linux-Download-6366f1?style=for-the-badge&logo=linux&logoColor=white" alt="Download für Linux"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/CaseyMazey/NEXUS/releases/latest"><img src="https://img.shields.io/github/v/release/CaseyMazey/NEXUS?label=Version" alt="Neueste Version"></a>
-  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4" alt="Windows 10 und 11">
+  <img src="https://img.shields.io/badge/System-Windows%20%7C%20macOS%20%7C%20Linux-0078d4" alt="Windows, macOS und Linux">
   <img src="https://img.shields.io/badge/Sprache-Deutsch%20%7C%20English-555" alt="Deutsch und Englisch">
   <a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-MIT-22c55e" alt="MIT-Lizenz"></a>
 </p>
@@ -32,11 +34,33 @@ Links stehen deine Projekte. Jedes Projekt hat einen eigenen **Desk**: einen Sch
 
 ## Installieren
 
-1. **[NEXUS-Setup.exe herunterladen](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-Setup.exe)** (Windows 10/11, ca. 120 MB).
-2. Die Datei ausführen. NEXUS installiert sich für deinen Benutzer, ohne Admin-Rechte, und legt eine Verknüpfung auf dem Desktop und im Startmenü an.
-3. Erscheint „Der Computer wurde durch Windows geschützt“: auf **Weitere Informationen → Trotzdem ausführen** klicken. Die Meldung kommt, weil das Setup noch nicht signiert ist.
+NEXUS gibt es kostenlos für Windows, macOS und Linux, direkt hier von GitHub. Ein Konto brauchst du nicht.
 
-Deinstallieren geht über Windows-Einstellungen → Apps. Deine Daten bleiben dabei erhalten.
+### Windows
+
+1. **[NEXUS-Setup.exe herunterladen](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-Setup.exe)** (Windows 10/11).
+2. Die Datei ausführen. NEXUS installiert sich für deinen Benutzer, ohne Admin-Rechte, mit Verknüpfung auf dem Desktop und im Startmenü.
+3. Erscheint „Der Computer wurde durch Windows geschützt“: auf **Weitere Informationen → Trotzdem ausführen** klicken. Die Meldung kommt, weil das Setup nicht signiert ist.
+
+**Updates kommen automatisch.** Deinstallieren geht über Einstellungen → Apps. Deine Daten bleiben dabei erhalten.
+
+### macOS
+
+1. Herunterladen, passend zu deinem Mac (Apfel-Menü → Über diesen Mac):
+   - **[Apple Silicon (M1, M2, M3 …)](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-mac-arm64.dmg)**
+   - **[Intel](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-mac-x64.dmg)**
+2. Die `.dmg` öffnen und **NEXUS in den Ordner „Programme“ ziehen**.
+3. **Beim ersten Öffnen** blockiert macOS die App, weil sie nicht über ein kostenpflichtiges Apple-Entwicklerkonto signiert ist. So öffnest du sie trotzdem:
+   - **Rechtsklick** auf NEXUS → **Öffnen** → **Öffnen**.
+   - Klappt das nicht (macOS 15 und neuer): **Systemeinstellungen → Datenschutz & Sicherheit**, nach unten scrollen, bei NEXUS auf **„Dennoch öffnen“** klicken.
+   - Meldet macOS, die App sei **„beschädigt“**: Terminal öffnen und `xattr -dr com.apple.quarantine /Applications/NEXUS.app` eingeben, danach normal öffnen.
+
+**Updates:** NEXUS meldet sich, wenn es eine neue Version gibt. Dann lädst du sie mit einem Klick herunter und ziehst sie wieder in „Programme“. Deine Daten bleiben erhalten. Automatisch installieren kann sich NEXUS auf dem Mac ohne Apple-Signatur nicht.
+
+### Linux
+
+- **[AppImage](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-linux-x86_64.AppImage)** (läuft auf den meisten Distributionen): herunterladen, ausführbar machen mit `chmod +x NEXUS-linux-x86_64.AppImage`, starten. **Updates kommen automatisch.**
+- **[.deb-Paket](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-linux-amd64.deb)** (Debian, Ubuntu, Mint …): `sudo apt install ./NEXUS-linux-amd64.deb`. Bei neuen Versionen meldet sich NEXUS mit einem Download-Link.
 
 ## So sieht NEXUS aus
 
@@ -97,7 +121,8 @@ Claude, ChatGPT, Gemini, Perplexity, Le Chat, Copilot, DeepSeek oder jede andere
 ## Gut zu wissen
 
 - **Claude Code:** Für 3C und das Terminal brauchst du [Claude Code](https://claude.com/claude-code) auf deinem Rechner, angemeldet mit deinem eigenen Konto. Fehlt es, sagt NEXUS dir, was zu tun ist.
-- **Deine Daten:** Alles liegt bei dir in `%APPDATA%\NEXUS`. Sicherungen der letzten 7 Tage liegen in `backups\`, das Protokoll in `logs\`. Das Protokoll enthält keine Zugangsdaten und keine E-Mail-Adressen.
+- **Wo deine Daten liegen:** Windows `%APPDATA%\NEXUS`, macOS `~/Library/Application Support/NEXUS`, Linux `~/.config/NEXUS`.
+- **Deine Daten:** Alles bleibt bei dir. Im Datenordner liegen Sicherungen der letzten 7 Tage (`backups`) und das Protokoll (`logs`). Das Protokoll enthält keine Zugangsdaten und keine E-Mail-Adressen.
 - **Die KI-Webseiten** laufen unverändert und getrennt voneinander. NEXUS schleust keine Skripte ein und liest keine Chats aus.
 
 ## Für Entwickler
@@ -110,7 +135,8 @@ npm install
 npm start              # aus dem Quellcode starten
 npm test               # Unit- und Oberflächentests
 npm run screenshots    # Bilder für diese README neu erzeugen (mit Demo-Daten)
-npm run dist           # Setup bauen
+npm run dist:win       # Setup bauen (dist:mac auf einem Mac, dist:linux unter Linux)
+npm run release -- 0.2.0 "Was ist neu"   # Version + Tag; GitHub baut alle Systeme
 ```
 
 - [`docs/phase-1/plan.md`](docs/phase-1/plan.md): Plan und Stand der Meilensteine
@@ -121,9 +147,9 @@ npm run dist           # Setup bauen
 
 ### English
 
-NEXUS puts **all your AIs in one place, organised by project**. Every project gets its own desk with up to four AIs side by side: Claude Code (with its own chat UI, “3C”), Claude, ChatGPT, Gemini and more. A shared **project context** keeps every AI on the same page. There is no NEXUS account and no server. You connect your own AIs and sign in to them yourself.
+NEXUS puts **all your AIs in one place, organised by project** – on Windows, macOS and Linux. Every project gets its own desk with up to four AIs side by side: Claude Code (with its own chat UI, “3C”), Claude, ChatGPT, Gemini and more. A shared **project context** keeps every AI on the same page. There is no NEXUS account and no server. You connect your own AIs and sign in to them yourself.
 
-**[Download NEXUS-Setup.exe](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-Setup.exe)**, run it (no admin rights needed), and NEXUS keeps itself up to date. If Windows SmartScreen warns on first start, click **More info → Run anyway**: the installer is not signed yet. The app speaks English and German.
+Download: **[Windows](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-Setup.exe)** · **[macOS Apple Silicon](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-mac-arm64.dmg)** · **[macOS Intel](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-mac-x64.dmg)** · **[Linux AppImage](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-linux-x86_64.AppImage)** · **[Linux .deb](https://github.com/CaseyMazey/NEXUS/releases/latest/download/NEXUS-linux-amd64.deb)**. The apps are not signed with paid developer certificates. On Windows click **More info → Run anyway**. On macOS right-click NEXUS → **Open** (or System Settings → Privacy & Security → **Open Anyway**). Windows and the Linux AppImage update themselves; on macOS and with the .deb, NEXUS tells you when a new version is ready to download. The app speaks English and German.
 
 ## Lizenz
 

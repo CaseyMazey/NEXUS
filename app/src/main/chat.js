@@ -1,6 +1,7 @@
 // Steuert das installierte Claude Code im Headless-Modus (stream-json) fuer die NEXUS-Chat-Ansicht.
 // NEXUS fasst keine Zugangsdaten an: Claude Code nutzt seine eigene Anmeldung.
-const { spawn, spawnSync } = require('node:child_process');
+const { spawn } = require('node:child_process');
+const { claudeCommand, killTree, spawnOptions } = require('./platform');
 const crypto = require('node:crypto');
 
 // default = manuell (fragt), auto = Claude Code entscheidet selbst und fragt nur bei Riskantem, plan = nur planen
@@ -24,7 +25,7 @@ class ChatSession {
     this.denyMessage = denyMessage || 'Denied by the user in NEXUS.';
     this.pending = new Map(); // request_id -> request (Rueckfragen)
     this.pushOnly = mode === 'pushOnly';
-    const args = ['/d', '/c', 'claude', '-p',
+    const args = ['-p',
       '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
       '--include-partial-messages',
       '--permission-mode', cliMode(mode),
@@ -35,7 +36,8 @@ class ChatSession {
     // zusaetzliche Ordner, die Claude lesen darf (z. B. die Kopien angehaengter Dateien)
     for (const d of addDirs) args.push('--add-dir', d);
     if (model && /^[a-z0-9.-]+$/i.test(model)) args.push('--model', model);
-    this.proc = spawn(process.env.ComSpec || 'cmd.exe', args, { cwd, env, windowsHide: true });
+    const cmd = claudeCommand(args, process.platform, env);
+    this.proc = spawn(cmd.file, cmd.args, { cwd, env, ...spawnOptions() });
     this.buf = '';
     this.proc.stdout.on('data', (c) => this._onData(c));
     this.proc.stderr.on('data', (c) => this.onEvent({ type: 'nexus-stderr', text: c.toString('utf8').slice(0, 2000) }));
@@ -148,16 +150,12 @@ class ChatSession {
       : { type: 'nexus-notice', key: 'chat.modelFailed', detail: r.error || '?' }));
   }
 
-  // Beenden: erst freundlich (stdin schliessen), dann den ganzen Prozessbaum.
-  // Unter Windows laeuft Claude Code als Kind von cmd.exe; proc.kill() wuerde nur cmd.exe beenden.
+  // Beenden: erst freundlich (stdin schliessen), dann den ganzen Prozessbaum
+  // (unter Windows laeuft Claude Code als Kind von cmd.exe, siehe platform.js)
   close(immediate = false) {
     try { this.proc.stdin.end(); } catch { /* schon zu */ }
-    const killTree = () => {
-      if (this.proc.exitCode !== null || !this.proc.pid) return;
-      if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(this.proc.pid), '/T', '/F'], { windowsHide: true });
-      else try { this.proc.kill(); } catch { /* schon beendet */ }
-    };
-    if (immediate) killTree(); else setTimeout(killTree, 3000);
+    const kill = () => killTree(this.proc);
+    if (immediate) kill(); else setTimeout(kill, 3000);
   }
 }
 

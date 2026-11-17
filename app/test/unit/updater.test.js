@@ -1,12 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { Updater } = require('../../src/main/updater');
+const { Updater, canSelfInstall, RELEASES } = require('../../src/main/updater');
 
 // Updater mit nachgebautem electron-updater
 function make({ enabled = true, setting = true } = {}) {
   const sent = [];
-  const u = new Updater({ enabled, isEnabledSetting: () => setting, toUi: (ch, s) => sent.push(s), log: () => {} });
+  const u = new Updater({ enabled, isEnabledSetting: () => setting, toUi: (ch, s) => sent.push(s), log: () => {}, selfInstall: true });
   const au = new EventEmitter();
   au.checks = 0; au.installed = null;
   au.checkForUpdates = async () => { au.checks++; };
@@ -51,4 +51,20 @@ test('waehrend des Ladens keine zweite Pruefung', async () => {
   u.set({ status: 'downloading', version: '0.1.2' });
   await u.check(true);
   assert.equal(au.checks, 0);
+});
+
+test('selbst installieren: Windows und Linux-AppImage ja, macOS und Linux-deb nein', () => {
+  assert.equal(canSelfInstall('win32', {}), true);
+  assert.equal(canSelfInstall('linux', { APPIMAGE: '/home/x/NEXUS.AppImage' }), true);
+  assert.equal(canSelfInstall('linux', {}), false);
+  assert.equal(canSelfInstall('darwin', {}), false);
+});
+
+test('ohne Selbst-Installation: neue Version nur melden, Knopf oeffnet die Download-Seite', () => {
+  const opened = [];
+  const u = new Updater({ enabled: true, selfInstall: false, isEnabledSetting: () => true, toUi: () => {}, log: () => {}, openUrl: (x) => opened.push(x) });
+  u.au = { quitAndInstall: () => { throw new Error('darf nicht installieren'); } };
+  u.set({ status: 'available', version: '0.2.0' });
+  u.install();
+  assert.deepEqual(opened, [RELEASES]);
 });
