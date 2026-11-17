@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "dist": "electron-builder --win nsis --publish never",
     "pack": "electron-builder --win dir --publish never",
-    "release": "node scripts/release.js"
+    "release": "node scripts/release.js",
+    "screenshots": "node scripts/screenshots.js"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

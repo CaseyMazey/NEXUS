@@ -480,6 +480,20 @@
     view.scrollDown = scrollDown;
     view.destroy = () => { clearInterval(think.timer); if (view.chatId) window.nexus.chatClose(view.chatId); root.remove(); };
 
+    // Verlauf zeichnen (fortgesetzte Sitzung); nach jedem Auftrag eine Abschlusszeile mit Uhrzeit und Dauer
+    function showHistory(items) {
+      let start = 0; let end = 0; let open = false;
+      const close = () => { if (open && end) addDone({ end, ms: start ? end - start : 0 }); open = false; end = 0; };
+      for (const it of items) {
+        if (it.kind === 'user') { close(); addUser(it.text, [], it.ts, false, it.files || []); start = it.ts || 0; }
+        else { open = true; end = Math.max(end, it.endTs || 0, it.ts || 0); if (it.kind === 'assistant') addAssistant(it.text); else addTool(it); }
+      }
+      close();
+      scrollDown();
+    }
+    // fuer das Screenshot-Skript: Beispielverlauf anzeigen (ersetzt die Begruessung)
+    view.showExample = (items) => { inner.replaceChildren(); showHistory(items); };
+
     // ----- Start -----
     view.ready = (async () => {
       const res = await window.nexus.openChat({ projectId: p.id, resumeId: view.sessionId, mode, model });
@@ -487,15 +501,7 @@
       if (res.history.length) {
         view.titled = true;
         addNote(tn('chat.resumed', res.history.length));
-        // nach jedem Auftrag (Nutzer-Nachricht bis zur naechsten) eine Abschlusszeile mit Uhrzeit und Dauer
-        let start = 0; let end = 0; let open = false;
-        const close = () => { if (open && end) addDone({ end, ms: start ? end - start : 0 }); open = false; end = 0; };
-        for (const it of res.history) {
-          if (it.kind === 'user') { close(); addUser(it.text, [], it.ts); start = it.ts || 0; }
-          else { open = true; end = Math.max(end, it.endTs || 0, it.ts || 0); if (it.kind === 'assistant') addAssistant(it.text); else addTool(it); }
-        }
-        close();
-        scrollDown();
+        showHistory(res.history);
       } else {
         append(el('div', { class: 'welcome' }, el('div', { class: 'wicon', style: { background: p.color + '33' } }, p.icon),
           el('h3', {}, 'Claude Code'), el('p', {}, t('chat.newIn', { name: p.name }))));
