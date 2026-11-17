@@ -4,6 +4,7 @@ const { UserError, UUID, COLOR, WSID, cleanDesk, buildContent } = require('./val
 const { VALIDATORS } = require('./settings');
 const { PALETTE, ICONS, isDir } = require('./projects');
 const { CATALOG, AI_ID, RESERVED, customAi } = require('./webviews');
+const { saveAttachment } = require('./attachments');
 
 const CODE_TYPES = ['claude-code', 'claude-code-term'];
 
@@ -100,6 +101,13 @@ function registerIpc(ctx) {
   });
   handle('chat-permission', (chatId, requestId, decision) => {
     if (['allow', 'always', 'deny'].includes(decision)) agents.chat(chatId)?.answerPermission(String(requestId), decision);
+  });
+  // Datei fuer 3C ablegen (Kopie im Anhang-Ordner), Rueckgabe: Pfad fuer die Nachricht
+  handle('chat-attach', (name, data) => {
+    if (typeof name !== 'string' || !(data instanceof Uint8Array)) throw new UserError('err.attachFailed', { name: String(name) });
+    try { return saveAttachment(ctx.attachDir, name, data); } catch (e) {
+      throw new UserError(e.message === 'too-big' ? 'err.attachTooBig' : 'err.attachFailed', { name });
+    }
   });
   handle('chat-interrupt', (chatId) => agents.chat(chatId)?.interrupt());
   handle('chat-mode', (chatId, mode) => agents.chat(chatId)?.setMode(mode));

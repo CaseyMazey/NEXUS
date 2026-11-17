@@ -16,6 +16,7 @@ const { Updater } = require('./updater');
 const { initLog, logDir } = require('./log');
 const { checkClaude } = require('./claude-check');
 const { cleanEnv } = require('./agents');
+const { pruneAttachments } = require('./attachments');
 
 const APP_ID = 'NEXUS';
 // Installierte Version: App-ID wie vom Installer in den Verknuepfungen eingetragen (package.json build.appId).
@@ -209,8 +210,11 @@ async function start() {
   const lang = resolveLang(store.data.settings.language, sysLocale);
   t = translator(lang);
   const projects = new Projects(store, projectRoot, lang);
+  const attachDir = path.join(DATA_DIR, 'attachments');
+  fs.mkdirSync(attachDir, { recursive: true });
+  try { pruneAttachments(attachDir); } catch (e) { console.log('[attachments]', e.message); }
   const agents = new Agents({
-    projectById: (id) => projects.byId(id), toUi, t,
+    projectById: (id) => projects.byId(id), toUi, t, attachDir,
     onPermission: notifyDecision,
     onSlashCommands: (list) => { store.data.slashCommands = list; store.save(); },
   });
@@ -222,7 +226,7 @@ async function start() {
     getWin: () => win, store, projects, agents, webviews, aiById, t, applyTheme, projectRoot, updater, version: app.getVersion(),
     lang, strings: dict(lang), migrated: migration && migration.files ? { from: LEGACY_DIR } : null,
     relaunch: () => { store.flush(); app.relaunch(); app.quit(); },
-    logDir, claude, checkClaude: () => refreshClaude(),
+    logDir, claude, checkClaude: () => refreshClaude(), attachDir,
   });
   // Claude Code installiert und angemeldet? (nur ja/nein, keine Kontodaten)
   async function refreshClaude() {

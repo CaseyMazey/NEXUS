@@ -153,7 +153,7 @@
   "settings.confirmRemove": "Ask before closing a workspace",
   "chat.placeholder": "Message Claude Code…",
   "chat.inputHint": "/ for commands · paste, drop or 📎 images · while a task runs, your message is queued",
-  "chat.attach": "Attach image",
+  "chat.attach": "Attach file (Claude sees images directly, other files as a copy)",
   "chat.send": "Send",
   "chat.queue": "Queue – Claude reads it as soon as it fits",
   "chat.stop": "Stop",
@@ -177,8 +177,6 @@
   "chat.error": "Error",
   "chat.result": "Result",
   "chat.tabToUse": "Tab",
-  "chat.onlyImages": "Images only (PNG, JPEG, GIF, WebP): skipped {name}",
-  "chat.imageTooBig": "Image too large (max. 5 MB): {name}",
   "chat.sendFailed": "Message could not be sent.",
   "chat.notAllowed": "Not allowed: {tool}",
   "chat.aborted": "Aborted: {reason}",
@@ -292,5 +290,9 @@
   "start.failedMsg": "NEXUS could not start.",
   "start.failedDetail": "{error}\n\nYour data in {data} is not changed. The log ({log}) helps to find the cause.",
   "start.newerMsg": "Your data comes from a newer NEXUS version.",
-  "start.newerDetail": "This version cannot read it. Please install the latest version of NEXUS. Your data in {data} stays unchanged."
+  "start.newerDetail": "This version cannot read it. Please install the latest version of NEXUS. Your data in {data} stays unchanged.",
+  "chat.attachedFiles": "Attached files (copies, for you to read):",
+  "chat.uploading": "saving …",
+  "err.attachTooBig": "“{name}” is too large (100 MB max).",
+  "err.attachFailed": "“{name}” could not be attached."
 }
