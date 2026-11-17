@@ -10,6 +10,9 @@ const { _electron: electron } = require('playwright-core');
 const APP = path.join(__dirname, '..', '..');
 const electronPath = require('electron');
 
+// Desk mit einem 3C-Workspace (neue Projekte starten leer)
+const ccDesk = () => ({ layout: 1, cells: ['ws-cc01', null, null, null], focus: 0, workspaces: [{ id: 'ws-cc01', type: 'claude-code', title: 'Claude Code', sessionId: null, url: null }] });
+
 async function launch(data) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-e2e-'));
   if (data) fs.writeFileSync(path.join(dir, 'nexus-data.json'), JSON.stringify(data));
@@ -64,6 +67,7 @@ test('3C: Nie fragen im Dropdown, Einreihen waehrend eines Auftrags, Vorschlag p
   const { app, page } = await launch({
     version: 1, ais: [], settings: { language: 'de' },
     projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+    desks: { demo: ccDesk() },
   });
   try {
     await page.waitForSelector('.composer textarea');
@@ -101,6 +105,7 @@ test('3C: Befehl per Enter aus dem Vorschlag ausfuehren – /clear leert den Kon
   const { app, page } = await launch({
     version: 1, ais: [], settings: { language: 'de' }, slashCommands: ['clear', 'context', 'compact'],
     projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+    desks: { demo: ccDesk() },
   });
   try {
     await page.waitForSelector('.composer textarea');
@@ -164,6 +169,7 @@ test('Claude Code fehlt: Hinweis statt 3C', async () => {
   const { app, page } = await launch({
     version: 1, ais: [], settings: { language: 'de' },
     projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+    desks: { demo: ccDesk() },
   });
   try {
     await page.waitForSelector('.composer textarea');
@@ -184,6 +190,7 @@ test('3C: beliebige Dateien anhaengen (Kopie im Anhang-Ordner), Bilder weiter di
   const { app, page, dir } = await launch({
     version: 1, ais: [], settings: { language: 'de' },
     projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+    desks: { demo: ccDesk() },
   });
   try {
     await page.waitForSelector('.composer textarea');
@@ -199,5 +206,46 @@ test('3C: beliebige Dateien anhaengen (Kopie im Anhang-Ordner), Bilder weiter di
     assert.ok(fs.existsSync(src));
     // keine Warnung "nur Bilder" mehr
     assert.equal(await page.locator('.note.warn').count(), 0);
+  } finally { await app.close(); }
+});
+
+test('Status am Projektnamen: arbeitet, fertig (nicht angesehen), angesehen', async () => {
+  const p1 = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const p2 = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' }, lastProject: 'a',
+    projects: [{ id: 'a', name: 'Alpha', path: p1, color: '#22c55e', icon: '🧭', group: '' }, { id: 'b', name: 'Beta', path: p2, color: '#6366f1', icon: '🏡', group: '' }],
+    desks: { a: ccDesk() },
+  });
+  try {
+    await page.waitForSelector('.composer textarea');
+    const view = () => [...live.values()].find((l) => l.view && l.projectId === 'a').view;
+    // Auftrag in Alpha laeuft (simuliert), dann zu Beta wechseln
+    await page.evaluate((f) => eval(f)().setBusy(true), view.toString());
+    await page.click('.project:nth-child(2)');
+    await page.waitForSelector('.project:nth-child(1) .p-status.busy');
+    // Auftrag fertig, waehrend Beta offen ist -> Haken bei Alpha
+    await page.evaluate((f) => eval(f)().setBusy(false), view.toString());
+    await page.waitForSelector('.project:nth-child(1) .p-status.done');
+    assert.equal(await page.getAttribute('.project:nth-child(1) .p-status', 'title'), 'Fertig – noch nicht angesehen');
+    // Alpha ansehen -> Haken weg
+    await page.click('.project:nth-child(1)');
+    await page.waitForFunction(() => !document.querySelector('.project .p-status'));
+  } finally { await app.close(); }
+});
+
+test('Neues Projekt: leerer Desk ohne automatisches 3C', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'neu', name: 'Neu', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+  });
+  try {
+    await page.waitForSelector('.cell-empty .ce-btns button');
+    assert.equal(await page.locator('.composer').count(), 0);
+    assert.match(await page.textContent('.cell-empty'), /Leerer Platz/);
+    // ueber den Knopf gezielt 3C oeffnen
+    await page.click('.cell-empty .ce-btns button:first-child');
+    await page.waitForSelector('.composer textarea');
   } finally { await app.close(); }
 });

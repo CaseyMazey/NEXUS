@@ -294,5 +294,8 @@
   "chat.attachedFiles": "Attached files (copies, for you to read):",
   "chat.uploading": "saving …",
   "err.attachTooBig": "“{name}” is too large (100 MB max).",
-  "err.attachFailed": "“{name}” could not be attached."
+  "err.attachFailed": "“{name}” could not be attached.",
+  "status.busy": "An AI is working",
+  "status.waiting": "Waiting for your decision",
+  "status.done": "Done – not viewed yet"
 }

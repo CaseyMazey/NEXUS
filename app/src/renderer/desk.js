@@ -4,8 +4,8 @@
 // ---------- Desk-Daten ----------
 function desk(pid = state.project) {
   if (!state.desks[pid]) {
-    const id = uid();
-    state.desks[pid] = { layout: 1, cells: [id, null, null, null], focus: 0, workspaces: [{ id, type: 'claude-code', title: t('ws.claudeCode'), sessionId: null, url: null }] };
+    // neues Projekt: leerer Desk, man waehlt selbst, was man oeffnet
+    state.desks[pid] = { layout: 1, cells: [null, null, null, null], focus: 0, workspaces: [] };
   }
   return state.desks[pid];
 }
@@ -38,6 +38,35 @@ function addWorkspace(type, extra = {}) {
   renderDesk(); saveDesk(); renderProjects();
   return ws;
 }
+// ---------- Status je Workspace und Projekt (wie bei mehreren Claude-Code-Sitzungen) ----------
+// fertig = Auftrag beendet, waehrend der Workspace nicht zu sehen war; bleibt markiert, bis man ihn ansieht
+function isVisible(wsId) {
+  const l = live.get(wsId);
+  if (!l || l.projectId !== state.project || document.hidden) return false;
+  const d = desk();
+  return d.cells.slice(0, d.layout).includes(wsId);
+}
+function markDone(wsId) {
+  const l = live.get(wsId);
+  if (l && !isVisible(wsId)) l.done = true;
+}
+// sichtbare Workspaces des aktiven Projekts gelten als angesehen
+function clearSeen() {
+  for (const [id, l] of live) if (l.done && isVisible(id)) l.done = false;
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { clearSeen(); renderChrome(); renderProjects(); } });
+// Zusammenfassung fuer die Projektliste: wartet > arbeitet > fertig
+function projectStatus(pid) {
+  let s = null;
+  for (const l of live.values()) {
+    if (l.projectId !== pid) continue;
+    if (l.waiting) return 'waiting';
+    if (l.busy) s = 'busy';
+    else if (l.done && !s) s = 'done';
+  }
+  return s;
+}
+
 function placeInFocus(wsId) {
   const d = desk();
   const cur = d.cells.slice(0, d.layout).indexOf(wsId);
@@ -103,8 +132,8 @@ function ensureLive(ws, pid) {
       onModel: (m) => setSetting('chatModel', m),
       onSession: (id) => { ws.sessionId = id; saveDeskFor(pid); refreshSessionsIf(pid); },
       onTitle: (title) => { ws.title = title; saveDeskFor(pid); renderChrome(); },
-      onBusy: (b) => { l.busy = b; renderChrome(); },
-      onWaiting: (b) => { l.waiting = b; renderChrome(); },
+      onBusy: (b) => { const was = l.busy; l.busy = b; if (was && !b) markDone(ws.id); renderChrome(); renderProjects(); },
+      onWaiting: (b) => { l.waiting = b; renderChrome(); renderProjects(); },
       onUsage: (info) => { state.usage = info; for (const x of live.values()) x.view?.setUsage(info); },
       onTurnDone: () => refreshSessionsIf(pid),
     });
@@ -154,6 +183,10 @@ function renderDesk() {
   for (let i = 0; i < d.layout; i++) cells.push(renderCell(i, d.cells[i] ? wsById(d.cells[i]) : null));
   grid.replaceChildren(...cells);
   requestAnimationFrame(() => { layoutWeb(); fitTerms(); });
+  // was jetzt zu sehen ist, gilt als angesehen
+  const hadDone = [...live.values()].some((l) => l.done);
+  clearSeen();
+  if (hadDone) { renderChrome(); renderProjects(); }
 }
 function layoutIcon(n) {
   const s = el('span', { class: 'lay-ico lay-' + n });
@@ -228,7 +261,8 @@ function renderChrome() {
     x.onclick = (e) => { e.stopPropagation(); removeWorkspace(w.id); };
     return el('div', { class: 'ws-chip' + (visible.includes(w.id) ? ' shown' : ''), style: { '--wc': info.color }, title: `${info.label}: ${w.title}\n${t('ws.chipHint')}`, onclick: () => placeInFocus(w.id) },
       el('span', {}, info.icon), el('span', { class: 'label' }, w.title),
-      l?.busy ? el('span', { class: 'busy' }) : null, l?.waiting ? el('span', { class: 'waiting' }, '!') : null, x);
+      l?.busy ? el('span', { class: 'busy' }) : null, l?.waiting ? el('span', { class: 'waiting' }, '!') : null,
+      !l?.busy && !l?.waiting && l?.done ? el('span', { class: 'done', title: t('status.done') }, '✓') : null, x);
   }));
   for (const c of document.querySelectorAll('.cell')) {
     const idx = [...c.parentNode.children].indexOf(c);

@@ -24,6 +24,11 @@ input[type=search] { width: 100%; background: var(--bg); color: var(--text); bor
 .project.active { background: color-mix(in srgb, var(--pc) 18%, transparent); border-left-color: var(--pc); }
 .project .icon { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; background: color-mix(in srgb, var(--pc) 30%, transparent); font-size: 13px; flex: none; }
 .project .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project .p-status { flex: none; display: grid; place-items: center; font-size: 10px; font-weight: 700; }
+.project .p-status.busy { width: 8px; height: 8px; border-radius: 50%; background: var(--pc); animation: pulse 1s infinite; }
+.project .p-status.waiting { width: 16px; height: 16px; border-radius: 50%; background: #f59e0b; color: #111; }
+.project .p-status.done { width: 16px; height: 16px; border-radius: 50%; background: #22c55e; color: #fff; }
+.ws-chip .done { background: #22c55e; color: #fff; border-radius: 50%; width: 15px; height: 15px; font-size: 9px; font-weight: 700; display: grid; place-items: center; flex: none; }
 .project .count { color: var(--muted); font-size: 11px; background: var(--panel-2); border-radius: 8px; padding: 0 6px; }
 .side-sessions { border-top: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .side-tools { padding: 2px 12px 6px; }
