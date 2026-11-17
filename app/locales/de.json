@@ -337,5 +337,12 @@
   "codexmode.workspace-write": "Im Projektordner",
   "codexmode.workspace-write.hint": "Codex darf im Projektordner ändern und Befehle ausführen, ohne zu fragen",
   "codexmode.danger-full-access": "Voller Zugriff ⚠",
-  "codexmode.danger-full-access.hint": "Codex darf alles auf dem Rechner, ohne Sandbox. Nur verwenden, wenn du dem Auftrag vertraust."
+  "codexmode.danger-full-access.hint": "Codex darf alles auf dem Rechner, ohne Sandbox. Nur verwenden, wenn du dem Auftrag vertraust.",
+  "limit.waiting": "Nutzungslimit erreicht. Um {time} ist das Kontingent wieder da – dann macht NEXUS automatisch an dieser Stelle weiter.",
+  "limit.hit": "Nutzungslimit erreicht. Ab {time} kannst du weitermachen.",
+  "limit.hitUnknown": "Nutzungslimit erreicht. Sobald das Kontingent wieder da ist, kannst du weitermachen.",
+  "limit.now": "Jetzt weiter",
+  "limit.cancel": "Nicht automatisch weitermachen",
+  "limit.continueMsg": "Das Nutzungslimit ist wieder frei. Mach bitte genau an der Stelle weiter, an der du unterbrochen wurdest.",
+  "settings.autoContinue": "Nach einem Nutzungslimit automatisch weitermachen, sobald das Kontingent wieder da ist"
 }

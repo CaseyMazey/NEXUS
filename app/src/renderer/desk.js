@@ -128,6 +128,7 @@ function ensureLive(ws, pid) {
       // zuletzt gewaehlter Modus und Modell gelten auch fuer neue Chats
       // 3C und Codex merken sich Modus und Modell getrennt
       agent: wsInfo(ws.type).agent || 'claude',
+      getAutoContinue: () => state.settings.autoContinue !== false,
       getMode: () => state.settings[ws.type === 'codex' ? 'codexMode' : 'chatMode'],
       onMode: (m) => setSetting(ws.type === 'codex' ? 'codexMode' : 'chatMode', m),
       getModel: () => state.settings[ws.type === 'codex' ? 'codexModel' : 'chatModel'],

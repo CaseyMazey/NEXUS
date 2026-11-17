@@ -337,5 +337,12 @@
   "codexmode.workspace-write": "In project folder",
   "codexmode.workspace-write.hint": "Codex may change files and run commands in the project folder without asking",
   "codexmode.danger-full-access": "Full access ⚠",
-  "codexmode.danger-full-access.hint": "Codex may do anything on the computer, without a sandbox. Only use it when you trust the task."
+  "codexmode.danger-full-access.hint": "Codex may do anything on the computer, without a sandbox. Only use it when you trust the task.",
+  "limit.waiting": "Usage limit reached. Your quota is back at {time} – NEXUS will then automatically continue right here.",
+  "limit.hit": "Usage limit reached. You can continue from {time}.",
+  "limit.hitUnknown": "Usage limit reached. You can continue as soon as your quota is back.",
+  "limit.now": "Continue now",
+  "limit.cancel": "Don't continue automatically",
+  "limit.continueMsg": "The usage limit has reset. Please continue exactly where you were interrupted.",
+  "settings.autoContinue": "After a usage limit, continue automatically as soon as the quota is back"
 }

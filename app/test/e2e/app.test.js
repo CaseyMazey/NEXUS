@@ -340,3 +340,27 @@ test('Codex-Workspace: eigene Modi (Sandbox), eigener Platzhalter, per Strg+Umsc
     assert.match(await page.textContent('.ws-chip'), /Codex/);
   } finally { await app.close(); }
 });
+
+test('Nutzungslimit: Hinweis mit Uhrzeit, Jetzt weiter schickt die Fortsetzen-Nachricht', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: 'x', group: '' }],
+    desks: { demo: ccDesk() },
+  });
+  try {
+    await page.waitForSelector('.composer textarea');
+    await page.evaluate(() => {
+      const v = [...live.values()].find((l) => l.view).view;
+      v.setBusy(true);
+      v.handle({ type: 'raw', data: { type: 'result', subtype: 'success', is_error: true, num_turns: 3, duration_ms: 5000, result: "You've hit your 5-hour limit · resets 11:59pm (Europe/Berlin)" } });
+    });
+    await page.waitForSelector('.note.limit');
+    assert.match(await page.textContent('.note.limit'), /23:59/);
+    assert.match(await page.textContent('.note.limit'), /automatisch/);
+    assert.equal(await page.locator('.note.warn').count(), 0);
+    await page.click('.note.limit button.primary');
+    await page.waitForFunction(() => /Mach bitte genau an der Stelle weiter/.test(document.querySelector('.msg.user:last-of-type')?.textContent || ''));
+    assert.equal(await page.locator('.note.limit').count(), 0);
+  } finally { await app.close(); }
+});

@@ -21,13 +21,14 @@ const VALIDATORS = {
   codexModel: (v) => typeof v === 'string' && /^[a-z0-9.\-_]{1,60}$/i.test(v),
   notify: (v) => typeof v === 'boolean',
   autoUpdate: (v) => typeof v === 'boolean',
+  autoContinue: (v) => typeof v === 'boolean',
   // eingeklappte Projektgruppen in der Seitenleiste
   collapsedGroups: (v) => Array.isArray(v) && v.length <= 100 && v.every((g) => typeof g === 'string' && g.length <= 40),
   language: (v) => ['auto', 'de', 'en'].includes(v),
   projectRoot: (v) => typeof v === 'string' && path.isAbsolute(v) && v.length < 500,
 };
 
-const DEFAULTS = { theme: 'nacht', lightTheme: 'hell', darkTheme: 'nacht', language: 'auto', notify: true, confirmRemove: true, autoUpdate: true };
+const DEFAULTS = { theme: 'nacht', lightTheme: 'hell', darkTheme: 'nacht', language: 'auto', notify: true, confirmRemove: true, autoUpdate: true, autoContinue: true };
 
 // Ungueltige oder fehlende Werte durch Standardwerte ersetzen, unbekannte Schluessel entfernen
 function normalize(settings) {
