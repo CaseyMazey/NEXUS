@@ -135,7 +135,8 @@ function ensureLive(ws, pid) {
       forkFrom: ws.forkFrom || null,
       onBranch: ({ sessionId, at, draft }) => addWorkspace(ws.type, { title: t('msg.branchTitle', { title: ws.title }), forkFrom: { sessionId, at, draft } }),
       getPins: (sid) => state.sessionMeta[sid]?.pins || [],
-      setPins: async (sid, list) => { state.sessionMeta[sid] = await window.nexus.updateSessionMeta(sid, { pins: list }); },
+      // sofort uebernehmen (die Leiste zeigt es gleich), dann speichern
+      setPins: async (sid, list) => { state.sessionMeta[sid] = { ...(state.sessionMeta[sid] || {}), pins: list }; state.sessionMeta[sid] = await window.nexus.updateSessionMeta(sid, { pins: list }); },
       getMode: () => state.settings[ws.type === 'codex' ? 'codexMode' : 'chatMode'],
       onMode: (m) => setSetting(ws.type === 'codex' ? 'codexMode' : 'chatMode', m),
       getModel: () => state.settings[ws.type === 'codex' ? 'codexModel' : 'chatModel'],
