@@ -29,6 +29,8 @@ function refreshSessionsIf(pid) { if (pid === state.project) refreshSessions(); 
 function addWorkspace(type, extra = {}) {
   const d = desk();
   const ws = { id: uid(), type, title: extra.title || wsInfo(type).label, sessionId: extra.sessionId || null, url: null };
+  // abgezweigter Chat: nur fuer den Start, wird nicht gespeichert (cleanDesk)
+  if (extra.forkFrom) ws.forkFrom = extra.forkFrom;
   d.workspaces.push(ws);
   // freie sichtbare Zelle bevorzugen, sonst die fokussierte
   const free = d.cells.slice(0, d.layout).findIndex((c) => !c);
@@ -129,6 +131,11 @@ function ensureLive(ws, pid) {
       // 3C und Codex merken sich Modus und Modell getrennt
       agent: wsInfo(ws.type).agent || 'claude',
       getAutoContinue: () => state.settings.autoContinue !== false,
+      getToolDisplay: () => state.settings.toolDisplay || 'always',
+      forkFrom: ws.forkFrom || null,
+      onBranch: ({ sessionId, at, draft }) => addWorkspace(ws.type, { title: t('msg.branchTitle', { title: ws.title }), forkFrom: { sessionId, at, draft } }),
+      getPins: (sid) => state.sessionMeta[sid]?.pins || [],
+      setPins: async (sid, list) => { state.sessionMeta[sid] = await window.nexus.updateSessionMeta(sid, { pins: list }); },
       getMode: () => state.settings[ws.type === 'codex' ? 'codexMode' : 'chatMode'],
       onMode: (m) => setSetting(ws.type === 'codex' ? 'codexMode' : 'chatMode', m),
       getModel: () => state.settings[ws.type === 'codex' ? 'codexModel' : 'chatModel'],

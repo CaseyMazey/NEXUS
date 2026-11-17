@@ -45,6 +45,7 @@ test('jeder im Code benutzte Schluessel steht im Woerterbuch', () => {
   for (const s of ['idle', 'checking', 'none', 'ready', 'off']) used.add(`update.status.${s}`);
   used.add('update.available');
   for (const s of ['busy', 'waiting', 'done']) used.add(`status.${s}`);
+  for (const v of ['always', 'live', 'never']) used.add(`settings.toolDisplay.${v}`);
   for (const m of ['read-only', 'workspace-write', 'danger-full-access']) { used.add(`codexmode.${m}`); used.add(`codexmode.${m}.hint`); }
   for (const p of ['missing', 'loggedOut']) { used.add(`claude.${p}Title`); used.add(`claude.${p}Text`); }
   for (const k of ['start.newerMsg', 'start.newerDetail', 'start.failedMsg', 'start.failedDetail', 'migrate.lockedMsg', 'migrate.lockedDetail', 'migrate.errorMsg', 'migrate.errorDetail']) used.add(k);

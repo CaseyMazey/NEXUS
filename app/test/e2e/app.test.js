@@ -364,3 +364,81 @@ test('Nutzungslimit: Hinweis mit Uhrzeit, Jetzt weiter schickt die Fortsetzen-Na
     assert.equal(await page.locator('.note.limit').count(), 0);
   } finally { await app.close(); }
 });
+
+test('3C-Nachrichten: Kopieren, Bearbeiten, Wiederholen, Anheften, Verzweigen', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page, dir } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: 'x', group: '' }],
+    desks: { demo: ccDesk() },
+  });
+  const SID = '11111111-1111-4111-8111-111111111111';
+  const A1 = '22222222-2222-4222-8222-222222222222';
+  try {
+    await page.waitForSelector('.composer textarea');
+    // Frage senden (Platzhalter-Agent), Antwort und Sitzung simulieren
+    await page.fill('.composer textarea', 'Wie spaet ist es?');
+    await page.press('.composer textarea', 'Enter');
+    await page.evaluate(({ SID, A1 }) => {
+      const v = [...live.values()].find((l) => l.view).view;
+      v.handle({ type: 'raw', data: { type: 'system', subtype: 'init', session_id: SID } });
+      v.handle({ type: 'raw', data: { type: 'assistant', uuid: A1, message: { content: [{ type: 'text', text: 'Kurz nach zwoelf.' }] } } });
+      v.handle({ type: 'raw', data: { type: 'result', subtype: 'success', num_turns: 1, duration_ms: 900 } });
+    }, { SID, A1 });
+    await page.waitForSelector('.msg.assistant[data-uuid] .msg-actions');
+    // Kopieren
+    await page.hover('.msg.assistant[data-uuid]');
+    await page.click('.msg.assistant[data-uuid] .msg-act[title="Kopieren"]');
+    assert.equal(await app.evaluate(({ clipboard }) => clipboard.readText()), 'Kurz nach zwoelf.');
+    // Anheften: Leiste oben, in den Sitzungsdaten gespeichert
+    await page.click('.msg.assistant[data-uuid] .msg-act[title="Anheften"]', { force: true });
+    await page.waitForSelector('.pin-bar:not([hidden]) .pin');
+    assert.match(await page.textContent('.pin-bar'), /Kurz nach zwoelf/);
+    for (let i = 0; i < 40 && !JSON.parse(fs.readFileSync(path.join(dir, 'nexus-data.json'), 'utf8')).sessionMeta[SID]?.pins; i++) await new Promise((r) => setTimeout(r, 100));
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'nexus-data.json'), 'utf8')).sessionMeta[SID].pins[0].uuid, A1);
+    // Bearbeiten: Text ins Eingabefeld, Hinweisleiste; Senden ersetzt die alte Nachricht
+    await page.click('.msg.user .msg-act[title^="Bearbeiten"]', { force: true });
+    assert.equal(await page.inputValue('.composer textarea'), 'Wie spaet ist es?');
+    await page.waitForSelector('.edit-bar:not([hidden])');
+    await page.fill('.composer textarea', 'Wie spaet ist es in Tokio?');
+    await page.press('.composer textarea', 'Enter');
+    await page.waitForFunction(() => document.querySelectorAll('.msg.user').length === 1 && /Tokio/.test(document.querySelector('.msg.user').textContent));
+    assert.equal(await page.locator('.msg.assistant[data-uuid]').count(), 0);
+    // Wiederholen: gleiche Frage noch einmal, weiterhin nur eine Nutzer-Nachricht
+    await page.evaluate(() => [...live.values()].find((l) => l.view).view.setBusy(false));
+    await page.click('.msg.user .msg-act[title^="Wiederholen"]', { force: true });
+    await page.waitForFunction(() => document.querySelectorAll('.msg.user').length === 1);
+    // Verzweigen von einer Antwort: neuer Workspace "(Zweig)"
+    await page.evaluate(({ SID, A1 }) => {
+      const v = [...live.values()].find((l) => l.view).view;
+      v.setBusy(false);
+      v.handle({ type: 'raw', data: { type: 'system', subtype: 'init', session_id: SID } });
+      v.handle({ type: 'raw', data: { type: 'assistant', uuid: A1, message: { content: [{ type: 'text', text: 'Abends.' }] } } });
+    }, { SID, A1 });
+    await page.click('.msg.assistant[data-uuid] .msg-act[title^="Verzweigen"]', { force: true });
+    await page.waitForFunction(() => [...document.querySelectorAll('.ws-chip .label')].some((e) => /Zweig/.test(e.textContent)));
+  } finally { await app.close(); }
+});
+
+test('Arbeitsschritte: nur waehrend der Arbeit sichtbar, nach dem Auftrag ausgeblendet', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de', toolDisplay: 'live' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: 'x', group: '' }],
+    desks: { demo: ccDesk() },
+  });
+  try {
+    await page.waitForSelector('.composer textarea');
+    await page.evaluate(() => {
+      const v = [...live.values()].find((l) => l.view).view;
+      v.setBusy(true);
+      v.handle({ type: 'raw', data: { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'ls' } }] } } });
+    });
+    await page.waitForSelector('.tool-group', { state: 'visible' });
+    await page.evaluate(() => [...live.values()].find((l) => l.view).view.handle({ type: 'raw', data: { type: 'result', subtype: 'success', num_turns: 1, duration_ms: 500 } }));
+    await page.waitForSelector('.tool-group', { state: 'hidden' });
+    // Umschalten auf "immer": wieder sichtbar
+    await page.evaluate(() => { for (const l of live.values()) l.view?.setToolDisplay('always'); });
+    await page.waitForSelector('.tool-group', { state: 'visible' });
+  } finally { await app.close(); }
+});

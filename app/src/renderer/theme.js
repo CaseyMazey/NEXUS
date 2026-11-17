@@ -84,6 +84,12 @@ function openSettings() {
       el('h3', {}, t('settings.workspaces')),
       checkbox('confirmRemove', t('settings.confirmRemove')),
       checkbox('autoContinue', t('settings.autoContinue')),
+      el('div', { class: 'm-row' }, el('span', {}, t('settings.toolDisplay')),
+        el('select', { class: 'm-select m-tools', onchange: async (e) => {
+          await setSetting('toolDisplay', e.target.value);
+          for (const l of live.values()) l.view?.setToolDisplay?.(e.target.value);
+        } }, ...['always', 'live', 'never'].map((v) => el('option', { value: v, ...((state.settings.toolDisplay || 'always') === v ? { selected: '' } : {}) }, t(`settings.toolDisplay.${v}`))))),
+      el('p', { class: 'm-sub' }, t('settings.toolDisplayHint')),
       el('h3', {}, t('shortcut.title')),
       el('div', { class: 'keys' }, ...shortcutList().flatMap(([k, d]) => [el('kbd', {}, k), el('span', {}, d)])),
       el('h3', {}, t('settings.claude')),
