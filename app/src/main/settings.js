@@ -17,8 +17,12 @@ const VALIDATORS = {
   darkTheme: (v) => THEMES[v]?.mode === 'dark',
   chatMode: (v) => ['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan'].includes(v),
   chatModel: (v) => typeof v === 'string' && MODEL.test(v),
+  codexMode: (v) => ['read-only', 'workspace-write', 'danger-full-access'].includes(v),
+  codexModel: (v) => typeof v === 'string' && /^[a-z0-9.\-_]{1,60}$/i.test(v),
   notify: (v) => typeof v === 'boolean',
   autoUpdate: (v) => typeof v === 'boolean',
+  // eingeklappte Projektgruppen in der Seitenleiste
+  collapsedGroups: (v) => Array.isArray(v) && v.length <= 100 && v.every((g) => typeof g === 'string' && g.length <= 40),
   language: (v) => ['auto', 'de', 'en'].includes(v),
   projectRoot: (v) => typeof v === 'string' && path.isAbsolute(v) && v.length < 500,
 };

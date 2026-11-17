@@ -18,6 +18,7 @@ const { checkClaude } = require('./claude-check');
 const { cleanEnv } = require('./agents');
 const { pruneAttachments } = require('./attachments');
 const { fixPath, isMac, isWin } = require('./platform');
+const { shortcutFor } = require('./shortcuts');
 
 // macOS/Linux: Programmpfad der Shell uebernehmen, damit "claude" gefunden wird
 fixPath();
@@ -155,7 +156,8 @@ function createWindow() {
     else if (mod && i.key === '0') { wc.setZoomLevel(0); e.preventDefault(); }
   });
   if (store.data.window?.maximized) win.maximize();
-  win.once('ready-to-show', () => win.show());
+  // Tests (--nexus-data): Fenster im Hintergrund zeigen, ohne den Fokus zu stehlen und ohne Taskleisten-Eintrag
+  win.once('ready-to-show', () => { if (isTest) { win.setSkipTaskbar(true); win.showInactive(); } else win.show(); });
   for (const ev of ['resize', 'move', 'maximize', 'unmaximize']) win.on(ev, rememberBounds);
   win.on('close', rememberBounds);
   win.loadFile(path.join(ROOT, 'src', 'renderer', 'index.html'));
@@ -181,6 +183,17 @@ function createWindow() {
 }
 
 app.on('second-instance', () => showWindow());
+
+// Tastenkuerzel im Hauptfenster und in den eingebetteten KI-Seiten (nicht in Anmeldefenstern)
+app.on('web-contents-created', (e, wc) => {
+  wc.on('before-input-event', (ev, input) => {
+    if (!win || win.isDestroyed() || BrowserWindow.fromWebContents(wc) !== win) return;
+    const sc = shortcutFor(input, isMac);
+    if (!sc) return;
+    ev.preventDefault();
+    toUi('shortcut', sc);
+  });
+});
 
 // Start ging schief: verstaendliche Meldung statt leerem oder fehlendem Fenster
 async function startFailed(err) {
@@ -239,6 +252,8 @@ async function start() {
   });
   // Claude Code installiert und angemeldet? (nur ja/nein, keine Kontodaten)
   async function refreshClaude() {
+    // Testmodus ohne echte Agenten: Pruefung ueberspringen
+    if (process.env.NEXUS_FAKE_AGENT === '1') { claude.status = { installed: true, loggedIn: true, version: 'test' }; toUi('claude-status', claude.status); return claude.status; }
     claude.status = await checkClaude(cleanEnv());
     console.log('[claude]', JSON.stringify(claude.status));
     toUi('claude-status', claude.status);

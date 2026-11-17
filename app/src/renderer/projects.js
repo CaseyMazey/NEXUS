@@ -5,8 +5,28 @@ function statusBadge(s) {
   if (!s) return null;
   return el('span', { class: 'p-status ' + s, title: t(`status.${s}`) }, s === 'waiting' ? '!' : s === 'done' ? '✓' : '');
 }
+// Gruppen: Projekte ohne Gruppe oben, dann die Gruppen alphabetisch (ein-/ausklappbar)
+const groupsOf = () => [...new Set(state.projects.map((p) => p.group || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, locale()));
+const isCollapsed = (g) => (state.settings.collapsedGroups || []).includes(g);
+// Reihenfolge wie in der Seitenleiste (fuer mod+1…9)
+const byName = (a, b) => a.name.localeCompare(b.name, locale(), { numeric: true });
+const membersOf = (g) => state.projects.filter((p) => (p.group || '') === g).sort(byName);
+function sidebarOrder() {
+  return [...membersOf(''), ...groupsOf().flatMap(membersOf)];
+}
+async function toggleGroup(g) {
+  const list = new Set(state.settings.collapsedGroups || []);
+  if (list.has(g)) list.delete(g); else list.add(g);
+  state.settings = await window.nexus.setSetting('collapsedGroups', [...list]);
+  renderProjects();
+}
+// Status einer ganzen Gruppe (fuer eingeklappte Gruppen): wartet > arbeitet > fertig
+function groupStatus(g) {
+  const all = state.projects.filter((p) => p.group === g).map((p) => projectStatus(p.id));
+  return ['waiting', 'busy', 'done'].find((s) => all.includes(s)) || null;
+}
 function renderProjects() {
-  const rows = state.projects.map((p) => {
+  const row = (p) => {
     const d = state.desks[p.id];
     const count = d ? d.workspaces.length : 0;
     const edit = el('button', { class: 'p-edit', title: t('project.edit') }, '✎');
@@ -18,7 +38,16 @@ function renderProjects() {
       p.missing ? el('span', { class: 'p-warn' }, '⚠') : null,
       statusBadge(projectStatus(p.id)),
       count ? el('span', { class: 'count', title: t('project.wsCount') }, String(count)) : null, edit);
-  });
+  };
+  const rows = membersOf('').map(row);
+  for (const g of groupsOf()) {
+    const members = membersOf(g);
+    const closed = isCollapsed(g) && !members.some((p) => p.id === state.project);
+    rows.push(el('div', { class: 'p-group' + (closed ? ' closed' : ''), title: t(closed ? 'group.expand' : 'group.collapse'), onclick: () => toggleGroup(g) },
+      el('span', { class: 'g-arrow' }, closed ? '▸' : '▾'), el('span', { class: 'g-name' }, g),
+      closed ? statusBadge(groupStatus(g)) : null, el('span', { class: 'g-count' }, String(members.length))));
+    if (!closed) rows.push(...members.map((p) => { const r = row(p); r.classList.add('in-group'); return r; }));
+  }
   $('#project-list').replaceChildren(...(rows.length ? rows : [el('div', { class: 'side-note' }, t('project.none'))]));
 }
 // Projektliste vom Hauptprozess uebernehmen, dabei Objekte behalten (laufende Chats halten Referenzen)
@@ -32,7 +61,7 @@ function openProjectEditor(p) {
   const isNew = !p;
   const f = { name: p?.name || '', icon: p?.icon || state.icons[state.projects.length % state.icons.length],
     color: p?.color || state.palette[state.projects.length % state.palette.length],
-    mode: 'new', folder: p?.path || '' };
+    mode: 'new', folder: p?.path || '', group: p?.group || '' };
   let error = '';
   let unlisted = [];
   let busy = false;
@@ -45,14 +74,14 @@ function openProjectEditor(p) {
     busy = true;
     try {
       if (isNew) {
-        const r = await window.nexus.createProject({ name: f.name, icon: f.icon, color: f.color, newFolder: f.mode === 'new', folder: f.mode === 'existing' ? f.folder : null });
+        const r = await window.nexus.createProject({ name: f.name, icon: f.icon, color: f.color, group: f.group, newFolder: f.mode === 'new', folder: f.mode === 'existing' ? f.folder : null });
         setProjects(r.projects);
         closeModal();
         renderProjects();
         state.project = null;
         selectProject(r.id);
       } else {
-        const patch = { name: f.name, icon: f.icon, color: f.color };
+        const patch = { name: f.name, icon: f.icon, color: f.color, group: f.group };
         if (f.folder !== p.path) patch.path = f.folder;
         setProjects(await window.nexus.updateProject(p.id, patch));
         closeModal();
@@ -89,6 +118,9 @@ function openProjectEditor(p) {
       input('name', { type: 'text', class: 'm-input', maxlength: '60', placeholder: t('project.namePlaceholder') }),
       el('h3', {}, t('project.folder')),
       ...folderPart,
+      el('h3', {}, t('group.title')),
+      input('group', { type: 'text', class: 'm-input m-group', maxlength: '40', list: 'nexus-groups', placeholder: t('group.placeholder') }),
+      el('datalist', { id: 'nexus-groups' }, ...groupsOf().map((g) => el('option', { value: g }))),
       el('h3', {}, t('project.iconColor')),
       icons, colors,
       error ? el('div', { class: 'm-error' }, error) : null,

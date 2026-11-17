@@ -126,10 +126,12 @@ function ensureLive(ws, pid) {
       project: p, sessionId: ws.sessionId, t, tn, locale,
       getSlashCommands: () => state.slashCommands,
       // zuletzt gewaehlter Modus und Modell gelten auch fuer neue Chats
-      getMode: () => state.settings.chatMode,
-      onMode: (m) => setSetting('chatMode', m),
-      getModel: () => state.settings.chatModel,
-      onModel: (m) => setSetting('chatModel', m),
+      // 3C und Codex merken sich Modus und Modell getrennt
+      agent: wsInfo(ws.type).agent || 'claude',
+      getMode: () => state.settings[ws.type === 'codex' ? 'codexMode' : 'chatMode'],
+      onMode: (m) => setSetting(ws.type === 'codex' ? 'codexMode' : 'chatMode', m),
+      getModel: () => state.settings[ws.type === 'codex' ? 'codexModel' : 'chatModel'],
+      onModel: (m) => setSetting(ws.type === 'codex' ? 'codexModel' : 'chatModel', m),
       onSession: (id) => { ws.sessionId = id; saveDeskFor(pid); refreshSessionsIf(pid); },
       onTitle: (title) => { ws.title = title; saveDeskFor(pid); renderChrome(); },
       onBusy: (b) => { const was = l.busy; l.busy = b; if (was && !b) markDone(ws.id); renderChrome(); renderProjects(); },

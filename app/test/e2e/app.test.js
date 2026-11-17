@@ -100,7 +100,8 @@ test('3C: Nie fragen im Dropdown, Einreihen waehrend eines Auftrags, Vorschlag p
   } finally { await app.close(); }
 });
 
-test('3C: Befehl per Enter aus dem Vorschlag ausfuehren – /clear leert den Kontext (echtes Claude Code, ohne Modell)', async () => {
+// braucht ein echtes, angemeldetes Claude Code (laeuft nur lokal, nicht im Testmodus auf GitHub)
+test('3C: Befehl per Enter aus dem Vorschlag ausfuehren – /clear leert den Kontext (echtes Claude Code, ohne Modell)', { skip: process.env.NEXUS_FAKE_AGENT === '1' }, async () => {
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
   const { app, page } = await launch({
     version: 1, ais: [], settings: { language: 'de' }, slashCommands: ['clear', 'context', 'compact'],
@@ -272,5 +273,67 @@ test('Projektkontext bearbeiten: gespeichert und in CLAUDE.md/AGENTS.md gespiege
     assert.ok(fs.existsSync(path.join(proj, 'AGENTS.md')));
     await page.click('#modal .m-head button');
     await page.waitForSelector('.d-context.has');
+  } finally { await app.close(); }
+});
+
+test('Projektgruppen und Tastenkuerzel (Strg+1…9 nach Seitenleiste, Strg+K Schnellsuche)', async () => {
+  const mk = () => fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const P = (id, name, group) => ({ id, name, path: mk(), color: '#22c55e', icon: 'x', group });
+  const { app, page, dir } = await launch({
+    version: 1, ais: [], settings: { language: 'de' }, lastProject: 'solo',
+    projects: [P('beta', 'Beta', 'Arbeit'), P('alpha', 'Alpha', 'Arbeit'), P('solo', 'Solo', ''), P('ferien', 'Ferien', 'Privat')],
+  });
+  const key = (keyCode, modifiers = ['control']) => app.evaluate(({ BrowserWindow }, a) => {
+    const wc = BrowserWindow.getAllWindows()[0].webContents;
+    wc.sendInputEvent({ type: 'keyDown', keyCode: a.keyCode, modifiers: a.modifiers });
+    wc.sendInputEvent({ type: 'keyUp', keyCode: a.keyCode, modifiers: a.modifiers });
+  }, { keyCode, modifiers });
+  try {
+    await page.waitForSelector('.p-group');
+    const order = await page.$$eval('#project-list > div', (els) => els.map((e) => e.classList.contains('p-group') ? '#' + e.querySelector('.g-name').textContent : e.querySelector('.name').textContent));
+    assert.deepEqual(order, ['Solo', '#Arbeit', 'Alpha', 'Beta', '#Privat', 'Ferien']);
+    // Strg+2 = zweites Projekt der Seitenleiste (Alpha)
+    await key('2');
+    await page.waitForFunction(() => state.project === 'alpha');
+    // Gruppe Privat einklappen: Ferien verschwindet, Einstellung gespeichert
+    await page.click('.p-group:has-text("Privat")');
+    await page.waitForFunction(() => !document.querySelector('#project-list').textContent.includes('Ferien'));
+    // Strg+K: Schnellsuche, Projekt per Suche oeffnen
+    await key('K');
+    await page.waitForSelector('.modal-box.palette .pal-input');
+    await page.fill('.pal-input', 'ferien');
+    await page.press('.pal-input', 'Enter');
+    await page.waitForFunction(() => state.project === 'ferien');
+    // aktives Projekt in eingeklappter Gruppe bleibt sichtbar
+    assert.match(await page.textContent('#project-list'), /Ferien/);
+    // Gruppe im Editor aendern
+    await page.click('.project.active .p-edit');
+    await page.fill('#modal .m-group', 'Urlaub');
+    await page.click('#modal .m-foot .primary');
+    await page.waitForFunction(() => [...document.querySelectorAll('.p-group .g-name')].some((e) => e.textContent === 'Urlaub'));
+    const saved = JSON.parse(fs.readFileSync(path.join(dir, 'nexus-data.json'), 'utf8'));
+    assert.equal(saved.projects.find((p) => p.id === 'ferien').group, 'Urlaub');
+    assert.deepEqual(saved.settings.collapsedGroups, ['Privat']);
+  } finally { await app.close(); }
+});
+
+test('Codex-Workspace: eigene Modi (Sandbox), eigener Platzhalter, per Strg+Umschalt+N', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: 'x', group: '' }],
+  });
+  try {
+    await page.waitForSelector('.cell-empty .ce-btns button');
+    await app.evaluate(({ BrowserWindow }) => {
+      const wc = BrowserWindow.getAllWindows()[0].webContents;
+      wc.sendInputEvent({ type: 'keyDown', keyCode: 'N', modifiers: ['control', 'shift'] });
+      wc.sendInputEvent({ type: 'keyUp', keyCode: 'N', modifiers: ['control', 'shift'] });
+    });
+    await page.waitForSelector('.composer textarea[placeholder="Nachricht an Codex…"]');
+    const modes = await page.$$eval('.composer select:not(.model-sel) option', (o) => o.map((x) => x.value));
+    assert.deepEqual(modes, ['read-only', 'workspace-write', 'danger-full-access']);
+    assert.equal(await page.inputValue('.composer select:not(.model-sel)'), 'workspace-write');
+    assert.match(await page.textContent('.ws-chip'), /Codex/);
   } finally { await app.close(); }
 });

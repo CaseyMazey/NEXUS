@@ -94,6 +94,13 @@ Braucht Claude eine Entscheidung, während NEXUS im Hintergrund ist, meldet sich
 
 <p align="center"><img src="docs/screenshots/3c-chat.png" alt="3C: Claude Code als Chat mit Werkzeug-Karten, Tabelle und Abschlusszeile" width="860"></p>
 
+### Codex – der zweite Agent
+
+Neben Claude Code gibt es auch [Codex](https://github.com/openai/codex) von OpenAI mit derselben Chat-Oberfläche: über ＋ → Codex oder mit Strg+⇧+N. Codex nutzt dein eigenes ChatGPT-Konto und liest den Projektkontext über `AGENTS.md`. Was er darf, legst du mit dem Modus fest:
+- **Nur lesen:** liest und schlägt vor, ändert aber nichts
+- **Im Projektordner:** darf im Projektordner ändern und Befehle ausführen
+- **Voller Zugriff:** darf alles auf dem Rechner, ohne Sandbox
+
 ### Projektkontext – ein Wissen für alle KIs
 
 Halte pro Projekt fest, was alle KIs wissen sollen, also Ziel, Stand und Regeln:
@@ -101,6 +108,22 @@ Halte pro Projekt fest, was alle KIs wissen sollen, also Ziel, Stand und Regeln:
 - **Claude, ChatGPT und Gemini im Web** bekommen ihn per Knopf **📋 Kontext**: Er landet in der Zwischenablage, und du fügst ihn mit Strg+V ein.
 
 <p align="center"><img src="docs/screenshots/projektkontext.png" alt="Projektkontext bearbeiten" width="760"></p>
+
+### Projektgruppen und Tastenkürzel
+
+**Gruppen:** Ordne Projekte in Gruppen wie „Arbeit“, „Privat“ oder „Uni“. Du legst sie im Projekt-Editor fest, in der Seitenleiste lassen sie sich ein- und ausklappen. Eine eingeklappte Gruppe zeigt trotzdem an, ob eine KI darin arbeitet oder fertig ist.
+
+**Tastenkürzel** funktionieren auch, wenn gerade eine KI-Webseite den Fokus hat. Auf dem Mac gilt ⌘ statt Strg.
+
+| Kürzel | Wirkung |
+|---|---|
+| Strg+K | Schnellsuche: Projekte, Workspaces, Sitzungen, Aktionen |
+| Strg+1 … 9 | Projekt 1 bis 9 öffnen |
+| Strg+⇧+1 … 4 | Raster mit 1 bis 4 Plätzen |
+| Strg+Tab | nächster Workspace (mit ⇧ vorheriger) |
+| Strg+N / Strg+⇧+N | neuer Claude-Code-Chat / neuer Codex-Chat |
+| Strg+W | aktiven Workspace schließen |
+| Strg+, | Einstellungen |
 
 ### Meine KIs
 
@@ -120,7 +143,7 @@ Claude, ChatGPT, Gemini, Perplexity, Le Chat, Copilot, DeepSeek oder jede andere
 
 ## Gut zu wissen
 
-- **Claude Code:** Für 3C und das Terminal brauchst du [Claude Code](https://claude.com/claude-code) auf deinem Rechner, angemeldet mit deinem eigenen Konto. Fehlt es, sagt NEXUS dir, was zu tun ist.
+- **Claude Code und Codex:** Für 3C und das Terminal brauchst du [Claude Code](https://claude.com/claude-code), für den Codex-Chat [Codex](https://github.com/openai/codex), jeweils auf deinem Rechner und mit deinem eigenen Konto angemeldet. Fehlt Claude Code, sagt NEXUS dir, was zu tun ist.
 - **Wo deine Daten liegen:** Windows `%APPDATA%\NEXUS`, macOS `~/Library/Application Support/NEXUS`, Linux `~/.config/NEXUS`.
 - **Deine Daten:** Alles bleibt bei dir. Im Datenordner liegen Sicherungen der letzten 7 Tage (`backups`) und das Protokoll (`logs`). Das Protokoll enthält keine Zugangsdaten und keine E-Mail-Adressen.
 - **Die KI-Webseiten** laufen unverändert und getrennt voneinander. NEXUS schleust keine Skripte ein und liest keine Chats aus.

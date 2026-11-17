@@ -27,6 +27,26 @@ jobs:
       - run: npm run lint
       - run: npm run test:unit
 
+  # Oberflaechentests (echte App, Playwright) – hier statt auf dem eigenen Rechner, damit keine Fenster stoeren.
+  # Ohne angemeldete Agenten: NEXUS_FAKE_AGENT ersetzt Claude Code/Codex durch einen stillen Platzhalter.
+  e2e:
+    needs: test
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      NEXUS_FAKE_AGENT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run test:e2e
+
   # Probe-Build fuer alle drei Systeme (nicht veroeffentlicht); die Dateien liegen 7 Tage als Artefakt bereit
   package:
     if: github.event_name == 'pull_request'

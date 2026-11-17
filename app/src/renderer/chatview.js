@@ -8,7 +8,9 @@
   const MAX_IMAGE = 5 * 1024 * 1024;
   // eingebaute Befehle mit eigener Beschreibung (Schluessel slash.<befehl>)
   const BUILTIN = ['clear', 'compact', 'context', 'model', 'usage', 'init', 'review', 'code-review', 'effort', 'recap', 'rename'];
-  const MODES = ['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan'];
+  const CLAUDE_MODES = ['default', 'acceptEdits', 'auto', 'pushOnly', 'bypassPermissions', 'plan'];
+  // Codex: die Sandbox bestimmt, was er darf (er fragt im exec-Modus nicht nach)
+  const CODEX_MODES = ['read-only', 'workspace-write', 'danger-full-access'];
 
   function el(tag, props = {}, ...children) {
     const e = document.createElement(tag);
@@ -69,7 +71,10 @@
     const thinking = el('div', { class: 'thinking', hidden: '' }, el('span', { class: 'think-icon' }, '✳'), thinkText, thinkTime);
     log.append(inner, thinking);
     const attachRow = el('div', { class: 'attach-row', hidden: '' });
-    const placeholder = t('chat.placeholder');
+    const isCodex = opts.agent === 'codex';
+    const MODES = isCodex ? CODEX_MODES : CLAUDE_MODES;
+    const mkey = (m) => (isCodex ? `codexmode.${m}` : `mode.${m}`);
+    const placeholder = t(isCodex ? 'codex.placeholder' : 'chat.placeholder');
     const input = el('textarea', { rows: '1', placeholder, title: t('chat.inputHint') });
     // alle Dateiarten: Bilder gehen direkt an Claude, alles andere als Kopie mit Pfad
     const fileInput = el('input', { type: 'file', multiple: '', hidden: '' });
@@ -78,13 +83,13 @@
     const sendBtn = el('button', { class: 'send', title: t('chat.send') }, '↑');
     const stopBtn = el('button', { class: 'stop', title: t('chat.stop'), hidden: '' }, '■');
     // Rechte-Modus (Dropdown). Auto fragt bei Riskantem nach; "Nie fragen" erlaubt alles.
-    let mode = MODES.includes(opts.getMode?.()) ? opts.getMode() : 'default';
+    let mode = MODES.includes(opts.getMode?.()) ? opts.getMode() : MODES[isCodex ? 1 : 0];
     const modeSel = el('select', { title: t('chat.permissions') },
-      ...MODES.map((m) => el('option', { value: m, title: t(`mode.${m}.hint`), ...(m === mode ? { selected: '' } : {}) }, t(`mode.${m}`))));
+      ...MODES.map((m) => el('option', { value: m, title: t(`${mkey(m)}.hint`), ...(m === mode ? { selected: '' } : {}) }, t(mkey(m)))));
     const modeHint = () => {
-      modeSel.title = `${t('chat.permissions')}: ${t(`mode.${mode}.hint`)}`;
+      modeSel.title = `${t('chat.permissions')}: ${t(`${mkey(mode)}.hint`)}`;
       modeSel.classList.toggle('auto', mode === 'auto');
-      modeSel.classList.toggle('bypass', mode === 'bypassPermissions');
+      modeSel.classList.toggle('bypass', mode === 'bypassPermissions' || mode === 'danger-full-access');
       modeSel.classList.toggle('pushonly', mode === 'pushOnly');
     };
     modeHint();
@@ -299,7 +304,7 @@
       const m = /^\/([\w:.-]*)$/.exec(input.value);
       if (!m) { slashBox.hidden = true; return; }
       const q = m[1].toLowerCase();
-      slashItems = opts.getSlashCommands().filter((c) => c.toLowerCase().includes(q))
+      slashItems = (isCodex ? [] : opts.getSlashCommands()).filter((c) => c.toLowerCase().includes(q))
         .sort((a, b) => (a.toLowerCase().startsWith(q) ? 0 : 1) - (b.toLowerCase().startsWith(q) ? 0 : 1) || a.length - b.length)
         .slice(0, 12);
       slashIndex = 0;
@@ -470,6 +475,7 @@
     };
 
     view.setUsage = (info) => {
+      if (isCodex) return; // Abo-Auslastung gilt nur fuer Claude
       const u = info?.unifiedWindows;
       const f = (w, label) => (w ? `${label} ${Math.round(w.utilization * 100)} %` : '');
       usage.textContent = u ? [f(u.five_hour, t('chat.usage5h')), f(u.seven_day, t('chat.usageWeek'))].filter(Boolean).join(' · ') : '';
@@ -496,7 +502,7 @@
 
     // ----- Start -----
     view.ready = (async () => {
-      const res = await window.nexus.openChat({ projectId: p.id, resumeId: view.sessionId, mode, model });
+      const res = await window.nexus.openChat({ projectId: p.id, resumeId: view.sessionId, mode, model, agent: opts.agent || 'claude' });
       view.chatId = res.chatId;
       if (res.history.length) {
         view.titled = true;
@@ -504,7 +510,7 @@
         showHistory(res.history);
       } else {
         append(el('div', { class: 'welcome' }, el('div', { class: 'wicon', style: { background: p.color + '33' } }, p.icon),
-          el('h3', {}, 'Claude Code'), el('p', {}, t('chat.newIn', { name: p.name }))));
+          el('h3', {}, isCodex ? 'Codex' : 'Claude Code'), el('p', {}, t('chat.newIn', { name: p.name }))));
       }
       return view;
     })();

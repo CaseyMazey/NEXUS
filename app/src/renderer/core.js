@@ -63,6 +63,7 @@ const project = (id = state.project) => state.projects.find((p) => p.id === id);
 const CODE_INFO = {
   'claude-code': { labelKey: 'ws.claudeCode', icon: '✳️', color: '#d97757', kind: 'chat' },
   'claude-code-term': { labelKey: 'ws.claudeCodeTerm', icon: '⌨', color: '#d97757', kind: 'term' },
+  codex: { labelKey: 'ws.codex', icon: '◎', color: '#10a37f', kind: 'chat', agent: 'codex' },
 };
 function wsInfo(type) {
   if (CODE_INFO[type]) return { ...CODE_INFO[type], label: t(CODE_INFO[type].labelKey) };
@@ -105,6 +106,7 @@ let modalOpen = false;
 let modalRender = null;
 function openModal(render) {
   closeOverlay();
+  modalBox().classList.remove('palette');
   modalOpen = true;
   modalRender = render;
   window.nexus.webHideAll();

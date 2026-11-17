@@ -33,6 +33,22 @@ input[type=search] { width: 100%; background: var(--bg); color: var(--text); bor
 .d-context.has { opacity: 1; border-color: color-mix(in srgb, var(--pc) 55%, var(--line)); }
 .m-context { width: 100%; box-sizing: border-box; min-height: 260px; resize: vertical; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font: 13px/1.5 inherit; }
 .cell-head .ctx-copy { font-size: 11.5px; padding: 2px 8px; width: auto; }
+.modal-box.palette { width: min(620px, 92vw); padding: 10px; }
+.pal-input { width: 100%; box-sizing: border-box; padding: 11px 13px; font-size: 15px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); outline: none; }
+.pal-list { margin-top: 8px; max-height: 50vh; overflow-y: auto; }
+.pal-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
+.pal-item.on { background: color-mix(in srgb, var(--pc, var(--accent)) 18%, var(--panel-2)); }
+.pal-icon { width: 22px; text-align: center; flex: none; }
+.pal-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-hint { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+.keys { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 13px; align-items: center; }
+.keys kbd { font: 12px var(--mono, monospace); padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel-2); white-space: nowrap; }
+.p-group { display: flex; align-items: center; gap: 6px; padding: 8px 8px 3px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; user-select: none; }
+.p-group:hover { color: var(--text); }
+.p-group .g-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-group .g-count { font-size: 10.5px; opacity: .8; }
+.p-group .g-arrow { width: 10px; }
+.project.in-group { margin-left: 8px; }
 .project .count { color: var(--muted); font-size: 11px; background: var(--panel-2); border-radius: 8px; padding: 0 6px; }
 .side-sessions { border-top: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .side-tools { padding: 2px 12px 6px; }

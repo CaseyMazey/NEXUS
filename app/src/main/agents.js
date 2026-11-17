@@ -5,6 +5,7 @@ const { ChatSession } = require('./chat');
 const { readHistory } = require('./sessions');
 const { UserError, UUID } = require('./validate');
 const { claudeCommand, isWin } = require('./platform');
+const { CodexSession } = require('./codex');
 
 // Umgebung fuer Claude Code: Variablen einer umgebenden Claude-Code-Sitzung entfernen
 function cleanEnv() {
@@ -47,9 +48,26 @@ class Agents {
     return termId;
   }
 
-  openChat({ projectId, resumeId, mode, model }) {
+  openChat({ projectId, resumeId, mode, model, agent }) {
     const project = this.project(projectId, resumeId);
     const chatId = this.nextChatId++;
+    // Testmodus (Oberflaechentests auf GitHub, ohne angemeldete Agenten): Ersatz, der nichts tut
+    if (process.env.NEXUS_FAKE_AGENT === '1') {
+      const fake = { send() {}, interrupt() {}, setMode() {}, setModel() {}, answerPermission() {}, close() {} };
+      this.chats.set(chatId, fake);
+      return { chatId, history: [] };
+    }
+    // Codex: eigener Agent, gleiche Chat-Ansicht (Ereignisse werden in codex.js uebersetzt)
+    if (agent === 'codex') {
+      const session = new CodexSession({
+        cwd: project.path, resumeId, mode, model, env: cleanEnv(),
+        addDirs: this.attachDir ? [this.attachDir] : [],
+        tmpDir: this.attachDir ? path.join(this.attachDir, 'codex-bilder') : null,
+        onEvent: (ev) => this.toUi('chat-event', chatId, ev),
+      });
+      this.chats.set(chatId, session);
+      return { chatId, history: [] };
+    }
     const session = new ChatSession({
       cwd: project.path, resumeId, mode, env: cleanEnv(),
       model: model && model !== 'default' ? model : null,
