@@ -4,8 +4,8 @@
 // ---------- Desk-Daten ----------
 function desk(pid = state.project) {
   if (!state.desks[pid]) {
-    const id = uid();
-    state.desks[pid] = { layout: 1, cells: [id, null, null, null], focus: 0, workspaces: [{ id, type: 'claude-code', title: t('ws.claudeCode'), sessionId: null, url: null }] };
+    // neues Projekt: leerer Desk, man waehlt selbst, was man oeffnet
+    state.desks[pid] = { layout: 1, cells: [null, null, null, null], focus: 0, workspaces: [] };
   }
   return state.desks[pid];
 }
