@@ -60,7 +60,8 @@
       const names = [...g.querySelectorAll(':scope > .tool summary b')].map((b) => b.textContent);
       const uniq = [...new Set(names)].slice(0, 4).join(', ');
       g.firstElementChild.textContent = `🔧 ${tn('chat.steps', g._count)} · ${uniq}`;
-      if (g._count <= 2) g.open = true;
+      // Standard: eingeklappt (Klick klappt auf/zu); "Ausgeklappt" oeffnet neue Gruppen gleich
+      if (root.classList.contains('tools-always')) g.open = true;
     }
 
     const log = el('div', { class: 'chat-log' });
@@ -120,7 +121,12 @@
     const composer = el('div', { class: 'composer' }, jumpBtn, box);
     const root = el('div', { class: 'chat' }, log, composer);
     // Arbeitsschritte: always | live (nur waehrend der Arbeit) | never – reine Anzeige, kostet keine Tokens
-    const setToolDisplay = (m) => { for (const k of ['always', 'live', 'never']) root.classList.toggle('tools-' + k, k === (m || 'always')); };
+    // collapsed (Standard) | always (ausgeklappt) | live (nur waehrend der Arbeit) | never
+    const setToolDisplay = (m) => {
+      const mode = ['collapsed', 'always', 'live', 'never'].includes(m) ? m : 'collapsed';
+      for (const k of ['collapsed', 'always', 'live', 'never']) root.classList.toggle('tools-' + k, k === mode);
+      if (mode === 'always' || mode === 'collapsed') for (const g of root.querySelectorAll('.tool-group')) g.open = mode === 'always';
+    };
     setToolDisplay(opts.getToolDisplay?.());
     container.append(root);
 

@@ -358,8 +358,9 @@
   "msg.branched": "Abgezweigt – dieser Chat macht an der gewählten Stelle weiter, das Original bleibt unverändert.",
   "msg.noSession": "Das geht erst, wenn der Chat seine erste Antwort hat.",
   "settings.toolDisplay": "Arbeitsschritte in 3C (Befehle, gelesene Dateien …):",
-  "settings.toolDisplay.always": "Immer anzeigen",
+  "settings.toolDisplay.always": "Ausgeklappt",
   "settings.toolDisplay.live": "Nur während der Arbeit",
   "settings.toolDisplay.never": "Nie anzeigen",
-  "settings.toolDisplayHint": "Nur die Anzeige – verbraucht keine Tokens. „Nur während der Arbeit“ blendet die Schritte aus, sobald ein Auftrag fertig ist; die Antworten bleiben."
+  "settings.toolDisplayHint": "Nur die Anzeige – verbraucht keine Tokens. Eingeklappt zeigt pro Block eine Zeile („6 Schritte · Read, Bash“), ein Klick klappt auf und zu. „Nur während der Arbeit“ blendet die Schritte aus, sobald ein Auftrag fertig ist.",
+  "settings.toolDisplay.collapsed": "Eingeklappt (Klick öffnet)"
 }

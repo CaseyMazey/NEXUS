@@ -442,3 +442,26 @@ test('Arbeitsschritte: nur waehrend der Arbeit sichtbar, nach dem Auftrag ausgeb
     await page.waitForSelector('.tool-group', { state: 'visible' });
   } finally { await app.close(); }
 });
+
+test('Arbeitsschritte standardmaessig eingeklappt, Klick klappt auf und zu', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: 'x', group: '' }],
+    desks: { demo: ccDesk() },
+  });
+  try {
+    await page.waitForSelector('.composer textarea');
+    await page.evaluate(() => {
+      const v = [...live.values()].find((l) => l.view).view;
+      v.setBusy(true);
+      v.handle({ type: 'raw', data: { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'ls' } }] } } });
+    });
+    await page.waitForSelector('.tool-group');
+    assert.equal(await page.$eval('.tool-group', (g) => g.open), false);
+    await page.click('.tool-group > summary');
+    assert.equal(await page.$eval('.tool-group', (g) => g.open), true);
+    await page.click('.tool-group > summary');
+    assert.equal(await page.$eval('.tool-group', (g) => g.open), false);
+  } finally { await app.close(); }
+});

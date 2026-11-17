@@ -358,8 +358,9 @@
   "msg.branched": "Branched – this chat continues from the chosen point, the original stays unchanged.",
   "msg.noSession": "Possible once the chat has its first answer.",
   "settings.toolDisplay": "Work steps in 3C (commands, files read …):",
-  "settings.toolDisplay.always": "Always show",
+  "settings.toolDisplay.always": "Expanded",
   "settings.toolDisplay.live": "Only while working",
   "settings.toolDisplay.never": "Never show",
-  "settings.toolDisplayHint": "Display only – uses no tokens. “Only while working” hides the steps as soon as a task is done; the answers stay."
+  "settings.toolDisplayHint": "Display only – uses no tokens. Collapsed shows one line per block (“6 steps · Read, Bash”), a click opens and closes it. “Only while working” hides the steps as soon as a task is done.",
+  "settings.toolDisplay.collapsed": "Collapsed (click to open)"
 }

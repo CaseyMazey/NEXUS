@@ -131,7 +131,7 @@ function ensureLive(ws, pid) {
       // 3C und Codex merken sich Modus und Modell getrennt
       agent: wsInfo(ws.type).agent || 'claude',
       getAutoContinue: () => state.settings.autoContinue !== false,
-      getToolDisplay: () => state.settings.toolDisplay || 'always',
+      getToolDisplay: () => state.settings.toolDisplay || 'collapsed',
       forkFrom: ws.forkFrom || null,
       onBranch: ({ sessionId, at, draft }) => addWorkspace(ws.type, { title: t('msg.branchTitle', { title: ws.title }), forkFrom: { sessionId, at, draft } }),
       getPins: (sid) => state.sessionMeta[sid]?.pins || [],
