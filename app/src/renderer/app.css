@@ -29,6 +29,10 @@ input[type=search] { width: 100%; background: var(--bg); color: var(--text); bor
 .project .p-status.waiting { width: 16px; height: 16px; border-radius: 50%; background: #f59e0b; color: #111; }
 .project .p-status.done { width: 16px; height: 16px; border-radius: 50%; background: #22c55e; color: #fff; }
 .ws-chip .done { background: #22c55e; color: #fff; border-radius: 50%; width: 15px; height: 15px; font-size: 9px; font-weight: 700; display: grid; place-items: center; flex: none; }
+.d-context { margin-left: 6px; border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 2px 7px; cursor: pointer; opacity: .65; }
+.d-context.has { opacity: 1; border-color: color-mix(in srgb, var(--pc) 55%, var(--line)); }
+.m-context { width: 100%; box-sizing: border-box; min-height: 260px; resize: vertical; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font: 13px/1.5 inherit; }
+.cell-head .ctx-copy { font-size: 11.5px; padding: 2px 8px; width: auto; }
 .project .count { color: var(--muted); font-size: 11px; background: var(--panel-2); border-radius: 8px; padding: 0 6px; }
 .side-sessions { border-top: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .side-tools { padding: 2px 12px 6px; }

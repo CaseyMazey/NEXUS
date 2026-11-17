@@ -249,3 +249,28 @@ test('Neues Projekt: leerer Desk ohne automatisches 3C', async () => {
     await page.waitForSelector('.composer textarea');
   } finally { await app.close(); }
 });
+
+test('Projektkontext bearbeiten: gespeichert und in CLAUDE.md/AGENTS.md gespiegelt', async () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  fs.writeFileSync(path.join(proj, 'CLAUDE.md'), '# Eigene Regeln\n');
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' },
+    projects: [{ id: 'demo', name: 'Demo', path: proj, color: '#22c55e', icon: '🧭', group: '' }],
+  });
+  try {
+    await page.waitForSelector('.d-context');
+    assert.equal(await page.$('.d-context.has'), null);
+    await page.click('.d-context');
+    await page.fill('#modal .m-context', 'Ziel: Testprojekt fuer NEXUS');
+    await page.click('#modal .m-foot .primary');
+    await page.waitForSelector('#modal .m-note');
+    assert.match(await page.textContent('#modal .m-note'), /CLAUDE\.md/);
+    assert.equal(fs.readFileSync(path.join(proj, '.nexus', 'context.md'), 'utf8'), 'Ziel: Testprojekt fuer NEXUS');
+    const claude = fs.readFileSync(path.join(proj, 'CLAUDE.md'), 'utf8');
+    assert.ok(claude.startsWith('# Eigene Regeln'));
+    assert.ok(claude.includes('Ziel: Testprojekt fuer NEXUS'));
+    assert.ok(fs.existsSync(path.join(proj, 'AGENTS.md')));
+    await page.click('#modal .m-head button');
+    await page.waitForSelector('.d-context.has');
+  } finally { await app.close(); }
+});

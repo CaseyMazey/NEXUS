@@ -297,5 +297,16 @@
   "err.attachFailed": "“{name}” could not be attached.",
   "status.busy": "An AI is working",
   "status.waiting": "Waiting for your decision",
-  "status.done": "Done – not viewed yet"
+  "status.done": "Done – not viewed yet",
+  "context.button": "Project context – shared knowledge for all AIs",
+  "context.title": "Project context – {name}",
+  "context.intro": "What should every AI know about this project? Goal, status, key decisions, rules, contacts … Claude Code reads it automatically; for web AIs you paste it with “Copy context”.",
+  "context.placeholder": "## Goal\nWhat is this about?\n\n## Status\nWhat is done, what is open?\n\n## Rules\nHow should the AI work? (e.g. language, style, what not to touch)",
+  "context.where": "Saved in .nexus/context.md in the project folder and as a marked section in CLAUDE.md and AGENTS.md (the rest of these files stays unchanged). Running Claude Code chats read it after a restart (↻).",
+  "context.saved": "Saved and mirrored to: {files}",
+  "context.savedNoChange": "Saved.",
+  "context.copy": "Context",
+  "context.copyHint": "Copy project context – then paste it here with Ctrl+V",
+  "context.copyHeader": "Project context “{name}” (from NEXUS):",
+  "context.copied": "Project context copied – now paste it into the chat with Ctrl+V."
 }

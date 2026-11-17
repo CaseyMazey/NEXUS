@@ -172,7 +172,8 @@ function renderDesk() {
   };
   const sw = el('span', { class: 'd-swatch', title: t('desk.projectColor'), style: { background: p.color } });
   sw.onclick = (e) => { e.stopPropagation(); swatchOverlay(sw, state.palette, async (c) => { setProjects(await window.nexus.updateProject(p.id, { color: c })); document.body.style.setProperty('--pc', p.color); renderProjects(); renderDesk(); }); };
-  $('#desk-title').replaceChildren(icon, el('span', { class: 'd-name' }, p.name), sw);
+  const ctxBtn = el('button', { class: 'd-context' + ((state.contexts[p.id] || '').trim() ? ' has' : ''), title: t('context.button'), onclick: () => openContextEditor(p) }, '📋');
+  $('#desk-title').replaceChildren(icon, el('span', { class: 'd-name' }, p.name), sw, ctxBtn);
   $('#layouts').replaceChildren(...[1, 2, 3, 4].map((n) => el('button', { class: 'lay' + (d.layout === n ? ' on' : ''), title: t('desk.layout', { n }), onclick: () => setLayout(n) }, layoutIcon(n))));
   renderChrome();
   const grid = $('#grid');
@@ -232,6 +233,9 @@ function renderCell(i, ws) {
   const actions = el('div', { class: 'ch-actions' });
   const btn = (titleKey, label, onclick, cls) => el('button', { title: t(titleKey), onclick, ...(cls ? { class: cls } : {}) }, label);
   if (info.kind === 'web' && state.aiStatus[ws.type] === 'out') actions.append(btn('ai.loginHint', t('ai.login'), () => window.nexus.aiLogin(ws.type), 'login-hint'));
+  if (info.kind === 'web' && (state.contexts[state.project] || '').trim()) {
+    actions.append(el('button', { class: 'ctx-copy', title: t('context.copyHint'), onclick: () => copyContext(state.project) }, '📋 ' + t('context.copy')));
+  }
   if (info.kind === 'web') {
     actions.append(btn('web.back', '←', () => window.nexus.webNav(ws.id, 'back')), btn('web.reload', '↻', () => window.nexus.webNav(ws.id, 'reload')),
       btn('web.newChat', '＋', () => window.nexus.webNav(ws.id, 'home')), btn('web.external', '⇱', () => window.nexus.webNav(ws.id, 'external')));

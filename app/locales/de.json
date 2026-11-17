@@ -297,5 +297,16 @@
   "err.attachFailed": "„{name}“ konnte nicht angehängt werden.",
   "status.busy": "Eine KI arbeitet gerade",
   "status.waiting": "Wartet auf deine Entscheidung",
-  "status.done": "Fertig – noch nicht angesehen"
+  "status.done": "Fertig – noch nicht angesehen",
+  "context.button": "Projektkontext – gemeinsames Wissen für alle KIs",
+  "context.title": "Projektkontext – {name}",
+  "context.intro": "Was sollen alle KIs über dieses Projekt wissen? Ziel, Stand, wichtige Entscheidungen, Regeln, Ansprechpartner … Claude Code liest das automatisch; in Web-KIs fügst du es mit „Kontext kopieren“ ein.",
+  "context.placeholder": "## Ziel\nWorum geht es?\n\n## Stand\nWas ist fertig, was ist offen?\n\n## Regeln\nWie soll gearbeitet werden? (z. B. Sprache, Stil, was nicht angefasst werden darf)",
+  "context.where": "Gespeichert in .nexus/context.md im Projektordner und als markierter Abschnitt in CLAUDE.md und AGENTS.md (der Rest dieser Dateien bleibt unverändert). Laufende Claude-Code-Chats lesen ihn nach einem Neustart (↻).",
+  "context.saved": "Gespeichert und gespiegelt in: {files}",
+  "context.savedNoChange": "Gespeichert.",
+  "context.copy": "Kontext",
+  "context.copyHint": "Projektkontext kopieren – dann hier mit Strg+V einfügen",
+  "context.copyHeader": "Projektkontext „{name}“ (aus NEXUS):",
+  "context.copied": "Projektkontext kopiert – jetzt im Chat mit Strg+V einfügen."
 }

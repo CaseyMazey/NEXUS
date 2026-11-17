@@ -5,6 +5,7 @@ const { VALIDATORS } = require('./settings');
 const { PALETTE, ICONS, isDir } = require('./projects');
 const { CATALOG, AI_ID, RESERVED, customAi } = require('./webviews');
 const { saveAttachment } = require('./attachments');
+const { readContext, writeContext } = require('./context');
 
 const CODE_TYPES = ['claude-code', 'claude-code-term'];
 
@@ -60,6 +61,14 @@ function registerIpc(ctx) {
     return r.canceled ? null : r.filePaths[0];
   });
   handle('open-folder', (id) => { const p = projects.byId(id); if (p) shell.openPath(p.path); });
+  // Projekt-Kontext (gemeinsames Wissen fuer alle KIs), gespiegelt in CLAUDE.md/AGENTS.md
+  handle('context-get', (id) => { const p = projects.byId(id); return p && isDir(p.path) ? readContext(p.path) : ''; });
+  handle('context-set', (id, text) => {
+    const p = projects.byId(id);
+    if (!p || typeof text !== 'string') throw new UserError('err.unknownProject');
+    if (!isDir(p.path)) throw new UserError('err.folderMissing');
+    return { written: writeContext(p.path, text) };
+  });
 
   // ---------- Desks ----------
   handle('save-desk', (projectId, desk) => {

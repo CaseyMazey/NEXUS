@@ -16,6 +16,11 @@ module.exports = [
     rules: { 'no-undef': 'off', 'no-unused-vars': 'off', 'no-redeclare': 'off' },
   },
   {
+    // Screenshot-Skript: Teile laufen per page.evaluate im NEXUS-Fenster (Funktionen der Oberflaeche)
+    files: ['scripts/screenshots.js'],
+    rules: { 'no-undef': 'off' },
+  },
+  {
     // in den Tests per page.evaluate im Fenster ausgewertet
     files: ['test/e2e/**/*.js'],
     languageOptions: { globals: { live: 'readonly', state: 'readonly', document: 'readonly' } },

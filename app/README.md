@@ -15,6 +15,8 @@ npm run lint
 
 `npm start -- --nexus-data=<ordner>` startet mit einem anderen Datenordner.
 
+`npm run screenshots` erzeugt die Bilder der Repo-README neu (`docs/screenshots/`). Das Skript nutzt einen eigenen Demo-Ordner mit erfundenen Projekten und nie deine echten Daten. Das Gespräch in 3C spielt es als Beispiel ein, es wird nichts an Claude gesendet. In den frischen Demo-Sitzungen der Web-KIs lehnt es die Cookie-Hinweise ab.
+
 ## Installer bauen
 
 ```bash
