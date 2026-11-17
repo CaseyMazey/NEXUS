@@ -4,6 +4,7 @@
 // Navigation nur zu erlaubten Hosts.
 const { WebContentsView, BrowserWindow, session, shell, dialog, nativeTheme } = require('electron');
 const { UserError } = require('./validate');
+const { AUTH_HOSTS, hostAllowed, isAuthUrl, safeUrl } = require('./hosts');
 
 // Diagnose-Protokoll (ohne Query-Strings/Cookies): Zeit seit Start des jeweiligen Fensters.
 const T0 = Date.now();
@@ -22,10 +23,6 @@ function trace(wc, tag, provider) {
   wc.on('did-create-window', (w, d) => log('□ Popup', short(d.url)));
   return log;
 }
-
-// Hosts, ueber die sich viele Anbieter anmelden lassen.
-const AUTH_HOSTS = ['accounts.google.com', 'accounts.youtube.com', 'appleid.apple.com', 'login.live.com',
-  'login.microsoftonline.com', 'challenges.cloudflare.com'];
 
 // Katalog bekannter KIs. id = Partitionsname (persist:nexus-<id>), bleibt stabil.
 // authCookie: woran NEXUS erkennt, dass man angemeldet ist (nur Existenz, nie der Wert).
@@ -89,26 +86,6 @@ function resolve(ai) {
   p.hosts = [...new Set([...(p.hosts || []), ...AUTH_HOSTS])];
   p.partition = 'persist:nexus-' + ai.id;
   return p;
-}
-
-function hostAllowed(provider, raw) {
-  let u;
-  try { u = new URL(raw); } catch { return false; }
-  if (u.protocol !== 'https:') return false;
-  return provider.hosts.some((h) => u.hostname === h || u.hostname.endsWith('.' + h));
-}
-// Login-/Auth-Seiten erkennen (werden nie als Chat-Adresse gespeichert).
-const AUTH_HOST = new Set(AUTH_HOSTS);
-function isAuthUrl(raw) {
-  try {
-    const u = new URL(raw);
-    if (AUTH_HOST.has(u.hostname) || /^(auth|login|accounts?|signin)\./.test(u.hostname)) return true;
-    return /(^|\/)(login|log-in|signin|sign-in|signup|sign-up|auth|oauth|sso|verify|register)(\/|$)/i.test(u.pathname);
-  } catch { return true; }
-}
-// Nur Ursprung + Pfad speichern (Query/Fragment koennen Tokens enthalten).
-function safeUrl(raw) {
-  try { const u = new URL(raw); return u.origin + u.pathname; } catch { return ''; }
 }
 
 const hardened = new Set();
