@@ -1,5 +1,10 @@
 // Seitenleiste: Projekte (anlegen, bearbeiten, entfernen) und Claude-Code-Sitzungen.
 
+// Zeichen am Projektnamen: KI arbeitet (pulsiert), wartet auf dich (!), fertig und noch nicht angesehen (✓)
+function statusBadge(s) {
+  if (!s) return null;
+  return el('span', { class: 'p-status ' + s, title: t(`status.${s}`) }, s === 'waiting' ? '!' : s === 'done' ? '✓' : '');
+}
 function renderProjects() {
   const rows = state.projects.map((p) => {
     const d = state.desks[p.id];
@@ -11,6 +16,7 @@ function renderProjects() {
       onclick: () => selectProject(p.id), oncontextmenu: (e) => { e.preventDefault(); openProjectEditor(p); } },
       el('span', { class: 'icon' }, p.icon), el('span', { class: 'name' }, p.name),
       p.missing ? el('span', { class: 'p-warn' }, '⚠') : null,
+      statusBadge(projectStatus(p.id)),
       count ? el('span', { class: 'count', title: t('project.wsCount') }, String(count)) : null, edit);
   });
   $('#project-list').replaceChildren(...(rows.length ? rows : [el('div', { class: 'side-note' }, t('project.none'))]));

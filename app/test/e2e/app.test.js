@@ -201,3 +201,27 @@ test('3C: beliebige Dateien anhaengen (Kopie im Anhang-Ordner), Bilder weiter di
     assert.equal(await page.locator('.note.warn').count(), 0);
   } finally { await app.close(); }
 });
+
+test('Status am Projektnamen: arbeitet, fertig (nicht angesehen), angesehen', async () => {
+  const p1 = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const p2 = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-proj-'));
+  const { app, page } = await launch({
+    version: 1, ais: [], settings: { language: 'de' }, lastProject: 'a',
+    projects: [{ id: 'a', name: 'Alpha', path: p1, color: '#22c55e', icon: '🧭', group: '' }, { id: 'b', name: 'Beta', path: p2, color: '#6366f1', icon: '🏡', group: '' }],
+  });
+  try {
+    await page.waitForSelector('.composer textarea');
+    const view = () => [...live.values()].find((l) => l.view && l.projectId === 'a').view;
+    // Auftrag in Alpha laeuft (simuliert), dann zu Beta wechseln
+    await page.evaluate((f) => eval(f)().setBusy(true), view.toString());
+    await page.click('.project:nth-child(2)');
+    await page.waitForSelector('.project:nth-child(1) .p-status.busy');
+    // Auftrag fertig, waehrend Beta offen ist -> Haken bei Alpha
+    await page.evaluate((f) => eval(f)().setBusy(false), view.toString());
+    await page.waitForSelector('.project:nth-child(1) .p-status.done');
+    assert.equal(await page.getAttribute('.project:nth-child(1) .p-status', 'title'), 'Fertig – noch nicht angesehen');
+    // Alpha ansehen -> Haken weg
+    await page.click('.project:nth-child(1)');
+    await page.waitForFunction(() => !document.querySelector('.project .p-status'));
+  } finally { await app.close(); }
+});

@@ -294,5 +294,8 @@
   "chat.attachedFiles": "Angehängte Dateien (Kopien, zum Lesen für dich):",
   "chat.uploading": "wird abgelegt …",
   "err.attachTooBig": "„{name}“ ist zu groß (höchstens 100 MB).",
-  "err.attachFailed": "„{name}“ konnte nicht angehängt werden."
+  "err.attachFailed": "„{name}“ konnte nicht angehängt werden.",
+  "status.busy": "Eine KI arbeitet gerade",
+  "status.waiting": "Wartet auf deine Entscheidung",
+  "status.done": "Fertig – noch nicht angesehen"
 }
