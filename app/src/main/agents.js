@@ -48,7 +48,7 @@ class Agents {
     return termId;
   }
 
-  openChat({ projectId, resumeId, mode, model, agent }) {
+  openChat({ projectId, resumeId, resumeAt, fork, mode, model, agent }) {
     const project = this.project(projectId, resumeId);
     const chatId = this.nextChatId++;
     // Testmodus (Oberflaechentests auf GitHub, ohne angemeldete Agenten): Ersatz, der nichts tut
@@ -70,6 +70,7 @@ class Agents {
     }
     const session = new ChatSession({
       cwd: project.path, resumeId, mode, env: cleanEnv(),
+      resumeAt: resumeAt && UUID.test(resumeAt) ? resumeAt : null, fork: !!fork,
       model: model && model !== 'default' ? model : null,
       denyMessage: this.t('chat.denied'),
       addDirs: this.attachDir ? [this.attachDir] : [],
@@ -83,7 +84,8 @@ class Agents {
       },
     });
     this.chats.set(chatId, session);
-    return { chatId, history: resumeId ? readHistory(project.path, resumeId) : [] };
+    const at = resumeAt && UUID.test(resumeAt) ? resumeAt : null;
+    return { chatId, history: resumeId ? readHistory(project.path, resumeId, 300, at) : [] };
   }
 
   chat(id) { return this.chats.get(id); }

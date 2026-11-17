@@ -20,7 +20,7 @@ function isPush(req) {
 const cliMode = (mode) => (mode === 'pushOnly' ? 'acceptEdits' : MODES.has(mode) ? mode : 'default');
 
 class ChatSession {
-  constructor({ cwd, resumeId, mode, model, env, onEvent, denyMessage, addDirs = [] }) {
+  constructor({ cwd, resumeId, resumeAt, fork, mode, model, env, onEvent, denyMessage, addDirs = [] }) {
     this.onEvent = onEvent;
     this.denyMessage = denyMessage || 'Denied by the user in NEXUS.';
     this.pending = new Map(); // request_id -> request (Rueckfragen)
@@ -33,6 +33,9 @@ class ChatSession {
       // nach jedem Auftrag ein Vorschlag fuer die naechste Nachricht (Tab uebernimmt ihn)
       '--prompt-suggestions', 'true'];
     if (resumeId) args.push('--resume', resumeId);
+    // Abzweigen: neue Sitzung, die nur den Verlauf bis resumeAt (uuid einer Nachricht) kennt
+    if (resumeId && resumeAt) args.push('--resume-session-at', resumeAt);
+    if (resumeId && fork) args.push('--fork-session');
     // zusaetzliche Ordner, die Claude lesen darf (z. B. die Kopien angehaengter Dateien)
     for (const d of addDirs) args.push('--add-dir', d);
     if (model && /^[a-z0-9.-]+$/i.test(model)) args.push('--model', model);
