@@ -83,6 +83,7 @@ function openSettings() {
       checkbox('notify', t('settings.notify')),
       el('h3', {}, t('settings.workspaces')),
       checkbox('confirmRemove', t('settings.confirmRemove')),
+      checkbox('autoContinue', t('settings.autoContinue')),
       el('h3', {}, t('shortcut.title')),
       el('div', { class: 'keys' }, ...shortcutList().flatMap(([k, d]) => [el('kbd', {}, k), el('span', {}, d)])),
       el('h3', {}, t('settings.claude')),

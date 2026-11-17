@@ -324,10 +324,41 @@
       input.focus();
     }
 
+    // ----- Nutzungslimit: automatisch weitermachen (wie Claude Code) -----
+    let lastLimitInfo = null;
+    let limitTimer = null;
+    let limitBanner = null;
+    function cancelContinue() {
+      clearTimeout(limitTimer); limitTimer = null;
+      if (limitBanner) { limitBanner.remove(); limitBanner = null; }
+    }
+    function continueNow() {
+      cancelContinue();
+      if (view.exited || view.busy) return;
+      input.value = t('limit.continueMsg');
+      send();
+    }
+    function scheduleContinue(resetAt) {
+      cancelContinue();
+      const auto = opts.getAutoContinue?.() !== false && resetAt;
+      const time = resetAt ? when(resetAt) : null;
+      const text = !resetAt ? t('limit.hitUnknown') : auto ? t('limit.waiting', { time }) : t('limit.hit', { time });
+      limitBanner = append(el('div', { class: 'note limit' },
+        el('span', {}, '⏳ ' + text),
+        el('button', { class: 'primary', onclick: continueNow }, t('limit.now')),
+        auto ? el('button', { onclick: cancelContinue }, t('limit.cancel')) : null));
+      if (!auto) return;
+      // etwas Puffer nach dem Reset; setTimeout vertraegt hoechstens ~24 Tage
+      const wait = Math.min(Math.max(5000, resetAt + 60000 - Date.now()), 2147483000);
+      limitTimer = setTimeout(continueNow, wait);
+    }
+    view.scheduleContinue = scheduleContinue; // fuer Tests
+
     // ----- Senden (laeuft ein Auftrag, wird die Nachricht eingereiht) -----
     function send() {
       const text = input.value.trim();
       if ((!text && !attachments.length) || view.exited || pendingFiles()) return;
+      cancelContinue();
       slashBox.hidden = true;
       setSuggestion('');
       const isQueued = view.busy;
@@ -420,7 +451,7 @@
           view.sessionId = null; opts.onSession?.(null);
           return;
         }
-        if (d.type === 'rate_limit_event') { opts.onUsage?.(d.rate_limit_info); return; }
+        if (d.type === 'rate_limit_event') { lastLimitInfo = d.rate_limit_info; opts.onUsage?.(d.rate_limit_info); return; }
         if (d.type === 'prompt_suggestion') {
           if (!input.value) setSuggestion(d.suggestion ?? d.prompt ?? d.text ?? (typeof d.content === 'string' ? d.content : ''));
           return;
@@ -454,7 +485,10 @@
           // lokale Slash-Befehle (z. B. /context) liefern ihre Ausgabe nur hier
           if (!turnHadText && d.result && d.subtype === 'success') addAssistant(String(d.result), 'command-output');
           const failed = d.is_error || d.subtype !== 'success';
-          if (failed && !/interrupt/i.test(String(d.subtype) + String(d.result || ''))) addNote(t('chat.aborted', { reason: `${d.subtype}${d.result ? ' – ' + String(d.result).slice(0, 200) : ''}` }), 'warn');
+          // Nutzungslimit erreicht: Hinweis + automatisch weitermachen, wenn das Kontingent zurueck ist
+          const lim = window.NexusLimit.parseLimit(String(d.result || ''), lastLimitInfo);
+          if (lim.hit) scheduleContinue(lim.resetAt);
+          else if (failed && !/interrupt/i.test(String(d.subtype) + String(d.result || ''))) addNote(t('chat.aborted', { reason: `${d.subtype}${d.result ? ' – ' + String(d.result).slice(0, 200) : ''}` }), 'warn');
           // lokale Befehle (/clear, /context …) laufen ohne Modell: keine Abschlusszeile mit "0 s · 1 Schritt"
           if (d.num_turns !== 0 || failed) addDone({ end: Date.now(), ms: d.duration_ms || (turnStart ? Date.now() - turnStart : 0), steps: d.num_turns, stopped: failed });
           deliverQueued();
@@ -484,7 +518,7 @@
     view.setBusy = setBusy;
     view.focus = () => { input.focus(); };
     view.scrollDown = scrollDown;
-    view.destroy = () => { clearInterval(think.timer); if (view.chatId) window.nexus.chatClose(view.chatId); root.remove(); };
+    view.destroy = () => { clearInterval(think.timer); clearTimeout(limitTimer); if (view.chatId) window.nexus.chatClose(view.chatId); root.remove(); };
 
     // Verlauf zeichnen (fortgesetzte Sitzung); nach jedem Auftrag eine Abschlusszeile mit Uhrzeit und Dauer
     function showHistory(items) {
