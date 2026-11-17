@@ -1,0 +1,79 @@
+# Neue Version: baut NEXUS auf Windows, macOS und Linux und legt das GitHub Release an.
+# Ausgeloest durch einen Tag v<version> (siehe app/scripts/release.js). Die Release-Notizen
+# stehen in der Tag-Nachricht.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-latest
+            dist: dist:win
+          - os: macos-latest
+            dist: dist:mac
+          - os: ubuntu-latest
+            dist: dist:linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: app
+    env:
+      # kein Apple-Entwicklerkonto: nicht nach Zertifikaten suchen (ad-hoc-Signatur, siehe package.json)
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run test:unit
+      - run: npm run ${{ matrix.dist }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexus-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            app/dist/*.exe
+            app/dist/*.blockmap
+            app/dist/*.yml
+            app/dist/*.dmg
+            app/dist/*.zip
+            app/dist/*.AppImage
+            app/dist/*.deb
+            !app/dist/builder-debug.yml
+            !app/dist/builder-effective-config.yaml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          git fetch --force --tags
+          NOTES="$(git tag -l --format='%(contents)' "$TAG")"
+          VERSION="${TAG#v}"
+          # fester Name fuer den Download-Knopf in der README (immer die neueste Version)
+          cp "out/NEXUS-Setup-${VERSION}.exe" out/NEXUS-Setup.exe
+          ls -la out
+          gh release create "$TAG" out/* --title "NEXUS ${VERSION}" --notes "$NOTES" --verify-tag

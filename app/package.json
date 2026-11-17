@@ -11,10 +11,13 @@
     "test:unit": "node --test \"test/unit/*.test.js\"",
     "test:e2e": "node --test --test-concurrency=1 \"test/e2e/*.test.js\"",
     "lint": "eslint .",
-    "dist": "electron-builder --win nsis --publish never",
+    "dist": "electron-builder --publish never",
     "pack": "electron-builder --win dir --publish never",
     "release": "node scripts/release.js",
-    "screenshots": "node scripts/screenshots.js"
+    "screenshots": "node scripts/screenshots.js",
+    "dist:win": "electron-builder --win nsis --publish never",
+    "dist:mac": "electron-builder --mac dmg zip --x64 --arm64 --publish never",
+    "dist:linux": "electron-builder --linux AppImage deb --x64 --publish never -c.npmRebuild=true"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
@@ -32,7 +35,10 @@
     "globals": "^17.14.0",
     "playwright-core": "^1.65.1"
   },
-  "author": "CaseyMazey",
+  "author": {
+    "name": "CaseyMazey",
+    "email": "253219934+CaseyMazey@users.noreply.github.com"
+  },
   "homepage": "https://github.com/CaseyMazey/NEXUS",
   "build": {
     "appId": "io.github.caseymazey.nexus",
@@ -47,12 +53,12 @@
       "locales/**/*",
       "build/icon.ico",
       "build/icon.png",
+      "build/icon-1024.png",
       "package.json"
     ],
     "asarUnpack": [
       "node_modules/node-pty/**"
     ],
-    "electronDist": "node_modules/electron/dist",
     "win": {
       "target": [
         "nsis"
@@ -88,7 +94,37 @@
         "from": "../LICENSE",
         "to": "LICENSE.txt"
       }
-    ]
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon-1024.png",
+      "category": "public.app-category.productivity",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "artifactName": "NEXUS-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "NEXUS",
+      "artifactName": "NEXUS-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icon-1024.png",
+      "category": "Utility",
+      "executableName": "nexus",
+      "synopsis": "Alle deine KIs an einem Ort – sortiert nach Projekten",
+      "artifactName": "NEXUS-linux-${arch}.${ext}"
+    },
+    "deb": {
+      "packageName": "nexus-ai"
+    }
   },
   "license": "MIT"
 }

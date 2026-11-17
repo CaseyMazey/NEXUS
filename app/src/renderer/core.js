@@ -5,9 +5,13 @@
 // ---------- Sprache ----------
 let STRINGS = {};
 let LANG = 'de';
+let PLATFORM = 'win32';
+// Taste fuer Tastenkuerzel: ⌘ auf dem Mac, sonst Strg (deutsch) bzw. Ctrl (englisch)
+const modKey = () => (PLATFORM === 'darwin' ? '⌘' : LANG === 'de' ? 'Strg' : 'Ctrl');
 function t(key, vars) {
   const s = STRINGS[key] ?? key;
-  return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
+  const all = { mod: modKey(), ...vars };
+  return s.replace(/\{(\w+)\}/g, (m, k) => (k in all ? String(all[k]) : m));
 }
 // Mehrzahl: Schluessel.one / Schluessel.other
 const tn = (key, n, vars = {}) => t(`${key}.${n === 1 ? 'one' : 'other'}`, { n, ...vars });

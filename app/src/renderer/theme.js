@@ -92,8 +92,8 @@ function openSettings() {
       el('p', { class: 'm-sub' }, t('update.version', { version: state.version || '?' }) + ' · ' + updateText(state.update)),
       state.update?.status === 'off' ? null : checkbox('autoUpdate', t('update.auto')),
       el('div', { class: 'm-foot', style: { justifyContent: 'flex-start' } },
-        state.update?.status === 'ready'
-          ? el('button', { class: 'primary', onclick: () => window.nexus.updateInstall() }, t('update.restart'))
+        state.update?.status === 'ready' || state.update?.status === 'available'
+          ? el('button', { class: 'primary', onclick: () => window.nexus.updateInstall() }, t(state.update.status === 'ready' ? 'update.restart' : 'update.download'))
           : el('button', { ...(state.update?.status === 'off' ? { disabled: '' } : {}), onclick: async () => { state.update = await window.nexus.updateCheck(); render(); } }, t('update.check'))),
     ].filter(Boolean));
   };

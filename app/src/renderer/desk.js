@@ -139,7 +139,7 @@ function ensureLive(ws, pid) {
     });
     if (state.usage) l.view.setUsage(state.usage);
   } else if (kind === 'term') {
-    const term = new Terminal({ fontFamily: 'Cascadia Mono, Consolas, monospace', fontSize: 13, cursorBlink: true, theme: termTheme(p) });
+    const term = new Terminal({ fontFamily: '"Cascadia Mono", Consolas, Menlo, "SF Mono", "DejaVu Sans Mono", "Liberation Mono", monospace', fontSize: 13, cursorBlink: true, theme: termTheme(p) });
     l.termProject = p;
     const fit = new FitAddon.FitAddon();
     term.loadAddon(fit);
