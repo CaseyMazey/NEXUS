@@ -6,6 +6,7 @@ const { readHistory } = require('./sessions');
 const { UserError, UUID } = require('./validate');
 const { claudeCommand, isWin } = require('./platform');
 const { CodexSession } = require('./codex');
+const { petResult, petDecision } = require('./pets');
 
 // Umgebung fuer Claude Code: Variablen einer umgebenden Claude-Code-Sitzung entfernen
 function cleanEnv() {
@@ -63,7 +64,10 @@ class Agents {
         cwd: project.path, resumeId, mode, model, env: cleanEnv(),
         addDirs: this.attachDir ? [this.attachDir] : [],
         tmpDir: this.attachDir ? path.join(this.attachDir, 'codex-bilder') : null,
-        onEvent: (ev) => this.toUi('chat-event', chatId, ev),
+        onEvent: (ev) => {
+          if (ev.type === 'raw') petResult(project, ev.data);
+          this.toUi('chat-event', chatId, ev);
+        },
       });
       this.chats.set(chatId, session);
       return { chatId, history: [] };
@@ -76,7 +80,8 @@ class Agents {
       addDirs: this.attachDir ? [this.attachDir] : [],
       onEvent: (ev) => {
         if (ev.type === 'nexus-exit') this.chats.delete(chatId);
-        if (ev.type === 'permission') this.onPermission(project, chatId, ev);
+        if (ev.type === 'permission') { this.onPermission(project, chatId, ev); petDecision(project, ev); }
+        if (ev.type === 'raw') petResult(project, ev.data);
         if (ev.type === 'raw' && ev.data.type === 'system' && ev.data.subtype === 'init' && Array.isArray(ev.data.slash_commands)) {
           this.onSlashCommands(ev.data.slash_commands.filter((s) => typeof s === 'string').slice(0, 400));
         }
