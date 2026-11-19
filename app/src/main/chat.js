@@ -19,16 +19,29 @@ function isPush(req) {
 }
 const cliMode = (mode) => (mode === 'pushOnly' ? 'acceptEdits' : MODES.has(mode) ? mode : 'default');
 
+// So lange darf Claude Code nach "Stoppen" brauchen, bevor NEXUS den Prozess beendet und die Sitzung neu startet
+// (haengt Claude Code, z. B. bei Verbindungsproblemen, beantwortet es den Stopp nie und zaehlt endlos Sekunden).
+const FORCE_STOP_MS = 5000;
+
 class ChatSession {
   constructor({ cwd, resumeId, resumeAt, fork, mode, model, env, onEvent, denyMessage, addDirs = [] }) {
     this.onEvent = onEvent;
     this.denyMessage = denyMessage || 'Denied by the user in NEXUS.';
     this.pending = new Map(); // request_id -> request (Rueckfragen)
+    this.ownRequests = new Map(); // request_id -> callback(response) fuer eigene Steuer-Anfragen
     this.pushOnly = mode === 'pushOnly';
+    Object.assign(this, { cwd, env, addDirs, mode, model: model && /^[a-z0-9.-]+$/i.test(model) ? model : null });
+    this.sessionId = resumeId && !fork ? resumeId : null;
+    this.turnOpen = false; // laeuft gerade ein Auftrag (Nachricht gesendet, noch kein result)?
+    this.stopTimer = null;
+    this._spawn({ resumeId, resumeAt, fork });
+  }
+
+  _spawn({ resumeId, resumeAt, fork }) {
     const args = ['-p',
       '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
       '--include-partial-messages',
-      '--permission-mode', cliMode(mode),
+      '--permission-mode', cliMode(this.mode),
       '--permission-prompts', 'host', '--permission-prompt-tool', 'stdio', '--allow-dangerously-skip-permissions',
       // nach jedem Auftrag ein Vorschlag fuer die naechste Nachricht (Tab uebernimmt ihn)
       '--prompt-suggestions', 'true'];
@@ -37,16 +50,18 @@ class ChatSession {
     if (resumeId && resumeAt) args.push('--resume-session-at', resumeAt);
     if (resumeId && fork) args.push('--fork-session');
     // zusaetzliche Ordner, die Claude lesen darf (z. B. die Kopien angehaengter Dateien)
-    for (const d of addDirs) args.push('--add-dir', d);
-    if (model && /^[a-z0-9.-]+$/i.test(model)) args.push('--model', model);
-    const cmd = claudeCommand(args, process.platform, env);
-    this.proc = spawn(cmd.file, cmd.args, { cwd, env, ...spawnOptions() });
+    for (const d of this.addDirs) args.push('--add-dir', d);
+    if (this.model) args.push('--model', this.model);
+    const cmd = claudeCommand(args, process.platform, this.env);
+    const proc = spawn(cmd.file, cmd.args, { cwd: this.cwd, env: this.env, ...spawnOptions() });
+    this.proc = proc;
     this.buf = '';
-    this.proc.stdout.on('data', (c) => this._onData(c));
-    this.proc.stderr.on('data', (c) => this.onEvent({ type: 'nexus-stderr', text: c.toString('utf8').slice(0, 2000) }));
-    this.proc.on('exit', (code) => this.onEvent({ type: 'nexus-exit', code }));
-    this.proc.on('error', (err) => this.onEvent({ type: 'nexus-error', message: err.message }));
-    this.ownRequests = new Map(); // request_id -> callback(response) fuer eigene Steuer-Anfragen
+    // Ereignisse eines abgeloesten (haengenden) Prozesses ignorieren
+    const mine = () => proc === this.proc;
+    proc.stdout.on('data', (c) => { if (mine()) this._onData(c); });
+    proc.stderr.on('data', (c) => { if (mine()) this.onEvent({ type: 'nexus-stderr', text: c.toString('utf8').slice(0, 2000) }); });
+    proc.on('exit', (code) => { if (mine()) { this._clearStop(); this.onEvent({ type: 'nexus-exit', code }); } });
+    proc.on('error', (err) => { if (mine()) this.onEvent({ type: 'nexus-error', message: err.message }); });
     // Verfuegbare Modelle von Claude Code holen (kostet nichts, geht nicht ans Modell)
     this._request({ subtype: 'initialize' }, (r) => {
       const models = (r?.response?.models || []).filter((m) => m && typeof m.value === 'string')
@@ -106,6 +121,9 @@ class ChatSession {
       // Andere Steuer-Anfragen kennt der Prototyp nicht -> sauber als Fehler beantworten.
       return this._write({ type: 'control_response', response: { subtype: 'error', request_id: d.request_id, error: 'not supported by NEXUS' } });
     }
+    if (d.type === 'system' && d.subtype === 'init' && typeof d.session_id === 'string') this.sessionId = d.session_id;
+    if (d.type === 'conversation_reset') this.sessionId = null;
+    if (d.type === 'result') { this.turnOpen = false; this._clearStop(); }
     // assistant, user (tool_result), result, system:init, rate_limit_event, permission_denied …
     this.onEvent({ type: 'raw', data: d });
   }
@@ -116,6 +134,7 @@ class ChatSession {
 
   // content: Text oder Inhalts-Array (Bilder + Text), vom Hauptprozess geprueft.
   send(content) {
+    this.turnOpen = true;
     this._write({ type: 'user', message: { role: 'user', content: Array.isArray(content) ? content : String(content) } });
   }
 
@@ -133,12 +152,35 @@ class ChatSession {
     this._write({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response } });
   }
 
+  // Stoppen: erst freundlich (interrupt). Kommt binnen FORCE_STOP_MS kein Abschluss – oder drueckt man
+  // ein zweites Mal –, beendet NEXUS den haengenden Prozess und setzt die Sitzung in einem neuen fort.
   interrupt() {
+    if (this.turnOpen && this.stopTimer) return this.forceStop();
     this._write({ type: 'control_request', request_id: crypto.randomUUID(), request: { subtype: 'interrupt' } });
+    if (this.turnOpen && !this.stopTimer) this.stopTimer = setTimeout(() => this.forceStop(), FORCE_STOP_MS);
+  }
+
+  _clearStop() { clearTimeout(this.stopTimer); this.stopTimer = null; }
+
+  forceStop() {
+    this._clearStop();
+    if (!this.turnOpen) return;
+    const old = this.proc;
+    this.turnOpen = false;
+    this.pending.clear();
+    this.ownRequests.clear();
+    // neuer Prozess zuerst, damit Ereignisse des alten ab sofort ignoriert werden
+    this._spawn({ resumeId: this.sessionId });
+    try { old.stdin.end(); } catch { /* schon zu */ }
+    killTree(old);
+    // fuer die Ansicht wie ein abgebrochener Auftrag: "Gestoppt", eingereihte Nachrichten gehen weiter
+    this.onEvent({ type: 'nexus-notice', key: 'chat.forceStopped' });
+    this.onEvent({ type: 'raw', data: { type: 'result', subtype: 'error_during_execution', is_error: true, result: 'interrupt (NEXUS)', num_turns: 1 } });
   }
 
   setMode(mode) {
     if (!MODES.has(mode)) return;
+    this.mode = mode;
     this.pushOnly = mode === 'pushOnly';
     this._request({ subtype: 'set_permission_mode', mode: cliMode(mode) }, (r) => {
       if (r.subtype !== 'success') this.onEvent({ type: 'nexus-notice', key: 'chat.modeFailed', detail: r.error || r.error_code || '?' });
@@ -148,9 +190,11 @@ class ChatSession {
   // Modell wechseln; gilt ab der naechsten Nachricht. Antwort: aufgeloester Modellname oder Fehler.
   setModel(model) {
     if (typeof model !== 'string' || !/^[a-z0-9.-]{1,60}$/i.test(model)) return;
-    this._request({ subtype: 'set_model', model }, (r) => this.onEvent(r.subtype === 'success'
-      ? { type: 'nexus-model', model: r.response?.model || model }
-      : { type: 'nexus-notice', key: 'chat.modelFailed', detail: r.error || '?' }));
+    this._request({ subtype: 'set_model', model }, (r) => {
+      if (r.subtype !== 'success') return this.onEvent({ type: 'nexus-notice', key: 'chat.modelFailed', detail: r.error || '?' });
+      this.model = model === 'default' ? null : model; // gilt auch nach einem Neustart (forceStop)
+      this.onEvent({ type: 'nexus-model', model: r.response?.model || model });
+    });
   }
 
   // Beenden: erst freundlich (stdin schliessen), dann den ganzen Prozessbaum
